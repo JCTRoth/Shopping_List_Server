@@ -1,8 +1,22 @@
 version: '3.4'
 
 services:
+  db:
+    image: mysql:5.7
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: 1
+      MYSQL_DATABASE: shoppinglistserver
+      MYSQL_USER: ShoppingListDBUser
+      MYSQL_PASSWORD: mysql-password-1234
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./_MySQL_Init_Script:/docker-entrypoint-initdb.d
+    restart: always
+
   downloadnewspaper:
-    image: downloadnewspaper
+    depends_on:
+      - db
+    image: shoppinglistserver
     build:
       context: .
       dockerfile: ./Dockerfile
