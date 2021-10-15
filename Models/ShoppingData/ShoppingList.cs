@@ -51,7 +51,7 @@ namespace ShoppingListServer.Models
             set
             {
                 date = value;
-                dateString = Date.ToString();
+                dateString = Date.ToString(CultureInfo.InvariantCulture);
             }
         }
 

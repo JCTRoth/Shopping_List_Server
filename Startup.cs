@@ -65,7 +65,8 @@ namespace ShoppingListServer
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = false,
-                    ValidateAudience = false
+                    ValidateAudience = false,
+                    ValidateLifetime = false
                 };
 
                 // API Key AUTH.
@@ -108,7 +109,7 @@ namespace ShoppingListServer
             // Pomelo.EntityFrameworkCore.MySql: https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql
             // A MySql database must be setup in the system with a name and user access specified in appsettings.json
 
-            string connectionString = "server=" + appSettings.DbServerAddress + ";" +
+            string connectionString = appSettings.DbServerAddress +
                 "user=" + appSettings.DbUser + ";" +
                  "password=" + appSettings.DbPassword + ";" +
                  "database=" + appSettings.DbName + ";";
@@ -176,6 +177,8 @@ namespace ShoppingListServer
 
 #if DEBUG
             app.UseDeveloperExceptionPage();
+            app.UseHsts();
+            app.UseHttpsRedirection();
 #else
             app.UseHsts();
             app.UseHttpsRedirection();
@@ -187,6 +190,14 @@ namespace ShoppingListServer
                 endpoints.MapHub<UpdateHub_Controller>("/shoppingserver/update");
                 endpoints.MapControllers();
             });
+
+            Console.WriteLine("Apply Database Migrations.");
+            // apply migrations
+            using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>().CreateScope())
+            {
+                var context = serviceScope.ServiceProvider.GetRequiredService<AppDb>();
+                context.Database.Migrate();
+            }
 
 
         }

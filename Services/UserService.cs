@@ -101,7 +101,7 @@ namespace ShoppingListServer.Services
                     new Claim(ClaimTypes.Role, user.Role)
                 }),
                 // TODO Expire Token
-                // Expires = DateTime.UtcNow.AddDays(99999),
+                Expires = DateTime.UtcNow.AddDays(99999),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 

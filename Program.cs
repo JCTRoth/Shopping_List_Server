@@ -25,7 +25,8 @@ namespace ShoppingListServer
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>()
-                        .UseUrls("http://0.0.0.0:5678");
+                        .UseSetting("https_port", "5678")
+                        .UseUrls("https://0.0.0.0:5678");
                 });
     }
 }

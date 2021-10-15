@@ -21,6 +21,10 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+    volumes: # mount the ssl certificate files folder in the docker image
+        - type: bind
+          source: /etc/letsencrypt/kestrel/ # this folder contains the certificat files
+          target: /app/cert-files/
     ports:
       - 5678:5678
 
