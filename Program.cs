@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
@@ -20,13 +21,15 @@ namespace ShoppingListServer
             CreateHostBuilder(args).Build().Run();
         }
 
+        // Uses the certificates specified in
+        // "Kestrel" -> "Certificates" -> "Default"
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>()
                         .UseSetting("https_port", "5678")
-                        .UseUrls("https://0.0.0.0:5678");
+                        .UseUrls("https://0.0.0.0:5678;http://0.0.0.0:5677"); // The http port 5677 is only needed for local server with iPhone emulator
                 });
     }
 }

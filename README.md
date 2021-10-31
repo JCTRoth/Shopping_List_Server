@@ -53,7 +53,7 @@ curl -I https://<certbot-address>:5678/users/test
 To work with docker, you can use the terminal.
 Run the following command once to tell docker to deploy the docker image to the server instead of your machine:
 ```
-export DOCKER_HOST=ssh://<server-address>
+export DOCKER_HOST=ssh://<user>@vmd70876.contaboserver.net
 ``
 
 Initially deploy both shoppinglistserver and database, by running the following command:

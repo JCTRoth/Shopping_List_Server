@@ -2,6 +2,7 @@ version: '3.4'
 
 services:
   db:
+    platform: linux/x86_64
     image: mysql:5.7
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: 1
@@ -13,13 +14,20 @@ services:
       - ./_MySQL_Init_Script:/docker-entrypoint-initdb.d
     restart: always
 
-  downloadnewspaper:
+  shoppinglistserver:
     depends_on:
       - db
     image: shoppinglistserver
     build:
       context: .
       dockerfile: ./Dockerfile
+    volumes: # mount the ssl certificate files folder in the docker image
+        - type: bind
+          source: /etc/letsencrypt/kestrel/ # this folder contains the certificat files
+          target: /app/cert-files/
     command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 Main.py "]
     ports:
       - 5678:5678
+
+volumes:
+  dbdata:

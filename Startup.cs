@@ -108,11 +108,15 @@ namespace ShoppingListServer
             // MySql database
             // Pomelo.EntityFrameworkCore.MySql: https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql
             // A MySql database must be setup in the system with a name and user access specified in appsettings.json
+            //string dbServerAddress = appSettings.UseDocker == "False" ? appSettings.DbServerAddress : appSettings.DbServerAddressDocker;
+            string dbServerAddress = appSettings.UseDocker == "False" ? appSettings.DbServerAddress : appSettings.DbServerAddressDocker;
 
-            string connectionString = appSettings.DbServerAddress +
+            string connectionString = dbServerAddress +
                 "user=" + appSettings.DbUser + ";" +
                  "password=" + appSettings.DbPassword + ";" +
                  "database=" + appSettings.DbName + ";";
+
+            Console.WriteLine("Database connection string = " + connectionString);
 
             ServerVersion service_version = ServerVersion.AutoDetect(connectionString);
 
@@ -175,13 +179,15 @@ namespace ShoppingListServer
             // Server accessibility on browser routs
             app.UseStaticFiles();
 
+            var appSettingsSection = Configuration.GetSection("AppSettings");
+            var appSettings = appSettingsSection.Get<AppSettings>();
+            if (appSettings.UseHttpsRedirect == "True")
+                app.UseHttpsRedirection();
 #if DEBUG
             app.UseDeveloperExceptionPage();
             app.UseHsts();
-            app.UseHttpsRedirection();
 #else
             app.UseHsts();
-            app.UseHttpsRedirection();
 #endif
 
             // SignalR/Websockets
