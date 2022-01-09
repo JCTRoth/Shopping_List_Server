@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
+using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
 
 namespace ShoppingListServer.Entities
@@ -29,8 +30,15 @@ namespace ShoppingListServer.Entities
         public string Token { get; set; }
 
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public bool IsVerified { get; set; } = false;
+
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<EMailVerificationToken> EMailVerificationTokens { get; set; } = new List<EMailVerificationToken>();
+
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<ShoppingListPermission> ShoppingListPermissions { get; set; } = new List<ShoppingListPermission>();
 
+        // Does not copy EMailVerificationTokens.
         public User Copy()
         {
             byte[] saltCopy = new byte[Salt.Length];
@@ -46,6 +54,7 @@ namespace ShoppingListServer.Entities
                 Salt = saltCopy,
                 Role = Role == null ? null : new string(Role),
                 Token = Token == null ? null : new string(Token),
+                IsVerified = IsVerified,
                 ShoppingListPermissions = new List<ShoppingListPermission>(ShoppingListPermissions)
             };
         }

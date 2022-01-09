@@ -7,6 +7,7 @@ using ShoppingListServer.Models;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Services.Interfaces;
+using System.Threading.Tasks;
 
 namespace ShoppingListServer.Controllers
 {
@@ -16,10 +17,12 @@ namespace ShoppingListServer.Controllers
     public class UsersController : ControllerBase
     {
         protected IUserService _userService;
+        protected IEMailVerificationService _emailVerificationService;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, IEMailVerificationService emailVerificationService)
         {
             _userService = userService;
+            _emailVerificationService = emailVerificationService;
         }
 
         // Is used to check if the server is reachable.
@@ -45,7 +48,7 @@ namespace ShoppingListServer.Controllers
         // Used to register users with id only or full users
         [AllowAnonymous]
         [HttpPost("register")]
-        public IActionResult Register([FromBody] object user_json_object)
+        public async Task<IActionResult> Register([FromBody] object user_json_object)
         {
             RegisterRequest registerRequest = JsonConvert.DeserializeObject<RegisterRequest>(user_json_object.ToString());
 
@@ -60,6 +63,7 @@ namespace ShoppingListServer.Controllers
 
             if (_userService.AddUser(new_user, registerRequest.Password))
             {
+                await _emailVerificationService.SendEMailVerificationCodeAndAddToken(new_user);
                 return Ok(new_user);
             }
             else
@@ -67,6 +71,34 @@ namespace ShoppingListServer.Controllers
                 return BadRequest(new { message = "Not registered" });
             };
 
+        }
+
+        // This address is supposed to be called from a web browser.
+        // Verify a user given a code that was sent to their email address when they registered.
+        // Returns a simple html page with a message of what happened.
+        [AllowAnonymous]
+        [HttpGet("verify/{urlCode}")]
+        public ContentResult Verify(string urlCode)
+        {
+            try
+            {
+                User user = _emailVerificationService.VerifyEMailUrlCode(urlCode);
+                // Return simple html page.
+                if (user != null)
+                {
+                    return base.Content("<div>Successfully registered!</div>", "text/html");
+                }
+                else
+                {
+                    return base.Content("<div>Oops, something went wrong :(</div>", "text/html");
+                }
+            }
+            catch (Exception e)
+            {
+                return base.Content("<div>Something went wrong: " + e.Message + "</div>", "text/html");
+            }
+            
+            
         }
 
 

@@ -106,10 +106,16 @@ CREATE SCHEMA `shoppinglistserver` ;
 dotnet tool install --global dotnet-ef
 ```
 
-To setup the database, install mysql and run the following:
+If changes to the database were made, run
+```
+dotnet ef migrations add <your custom migration message, e.g. AddParameterOfSomeKind>
+```
+
+Migration is done automatically when starting the server so it's not necessary to run them automatically. If you opt to do anyways, you can do the following:
 ```
 dotnet ef database update
 ```
+
 
 ### Start a single docker container
 docker build -t shoppinglistserver .

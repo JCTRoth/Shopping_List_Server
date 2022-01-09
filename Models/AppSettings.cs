@@ -3,6 +3,10 @@ namespace ShoppingListServer.Helpers
     public class AppSettings
     {
         public string Secret { get; set; }
+        public string NoReplyEMailHost { get; set; }
+        public int NoReplyEMailPort { get; set; }
+        public string NoReplyEMailAddress { get; set; }
+        public string NoReplyEMailPassword { get; set; }
         public string DbServerAddress { get; set; }
         public string DbServerAddressDocker { get; set; }
         public string DbName { get; set; }

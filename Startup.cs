@@ -98,6 +98,7 @@ namespace ShoppingListServer
             // configure DI for application services
             // Scoped services are created once per request.
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IEMailVerificationService, EMailVerificationService>();
             services.AddScoped<IShoppingService, ShoppingService>();
             // Transient services are created each time they are requested.
             services.AddTransient<IShoppingHub, ShoppingHubService>();
