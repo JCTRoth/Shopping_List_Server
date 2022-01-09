@@ -29,7 +29,6 @@ namespace ShoppingListServer.Entities
 
         public string Token { get; set; }
 
-        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public bool IsVerified { get; set; } = false;
 
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]

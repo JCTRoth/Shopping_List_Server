@@ -21,11 +21,16 @@ namespace ShoppingListServer.Services
     {
         private readonly AppSettings _appSettings;
         private readonly AppDb _db;
+        private readonly IUserHub _userHub;
 
-        public UserService(IOptions<AppSettings> appSettings, AppDb db)
+        public UserService(
+            IOptions<AppSettings> appSettings,
+            AppDb db,
+            IUserHub userHub)
         {
             _appSettings = appSettings.Value;
             _db = db;
+            _userHub = userHub;
         }
 
         public bool AddUser(User new_user, string password)

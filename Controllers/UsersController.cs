@@ -8,6 +8,7 @@ using ShoppingListServer.Helpers;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Services.Interfaces;
 using System.Threading.Tasks;
+using System.Security.Claims;
 
 namespace ShoppingListServer.Controllers
 {
@@ -97,10 +98,21 @@ namespace ShoppingListServer.Controllers
             {
                 return base.Content("<div>Something went wrong: " + e.Message + "</div>", "text/html");
             }
-            
-            
         }
 
+        [HttpPost("resendVerificationEMail")]
+        public async Task<IActionResult> ResendVerificationEMail()
+        {
+            User user = _userService.GetById(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (user != null)
+            {
+                if (await _emailVerificationService.SendEMailVerificationCodeAndAddToken(user))
+                {
+                    return Ok();
+                }
+            }
+            return BadRequest(new { message = "User does not exist." });
+        }
 
         /*
         [Authorize(Roles = Role.User)]

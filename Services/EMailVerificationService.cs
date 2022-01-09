@@ -23,11 +23,16 @@ namespace ShoppingListServer.Services
     {
         private readonly AppSettings _appSettings;
         private readonly AppDb _db;
+        private readonly IUserHub _userHub;
 
-        public EMailVerificationService(IOptions<AppSettings> appSettings, AppDb db)
+        public EMailVerificationService(
+            IOptions<AppSettings> appSettings,
+            AppDb db,
+            IUserHub userHub)
         {
             _appSettings = appSettings.Value;
             _db = db;
+            _userHub = userHub;
         }
 
         public async Task<bool> SendEMailVerificationCodeAndAddToken(User user)
@@ -108,6 +113,7 @@ namespace ShoppingListServer.Services
                     if (!u.IsVerified)
                     {
                         u.IsVerified = true;
+                        _userHub.SendUserVerified(u);
                     }
                 }
             }

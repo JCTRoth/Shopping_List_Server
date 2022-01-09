@@ -13,11 +13,8 @@ namespace ShoppingListServer.LiveUpdates
     [Authorize]
     public class UpdateHub_Controller : Hub
     {
-        protected IShoppingHub _shoppingHubService;
-
-        public UpdateHub_Controller(IShoppingHub shoppingHubService)
+        public UpdateHub_Controller()
         {
-            _shoppingHubService = shoppingHubService;
         }
 
         public override async Task OnConnectedAsync()
