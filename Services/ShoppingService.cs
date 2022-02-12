@@ -137,6 +137,27 @@ namespace ShoppingListServer.Services
             return success;
         }
 
+        public async Task<bool> UpdateListProperty(string listSyncId, string userId, string propertyName, string propertyValue)
+        {
+            ShoppingList listEntity = GetShoppingListEntity(listSyncId);
+            if (listEntity == null)
+                throw new ShoppingListNotFoundException(listSyncId);
+            CheckPermissionWithException(listEntity, userId, ShoppingListPermissionType.Write);
+
+            ShoppingList list = LoadShoppingList(listSyncId);
+            if (propertyName == "Date")
+                list.DateString = propertyValue;
+            else if (propertyName == "Notes")
+                list.Notes = propertyValue;
+
+            bool success = UpdateShoppingList(list);
+            if (success)
+            {
+                await _hubService.SendListPropertyChanged(_userService.GetById(userId), listSyncId, propertyName, propertyValue, ShoppingListPermissionType.Read);
+            }
+            return success;
+        }
+
         public async Task<bool> DeleteList(string shoppingListId, string userId)
         {
             

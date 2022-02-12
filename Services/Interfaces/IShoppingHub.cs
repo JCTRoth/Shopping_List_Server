@@ -14,6 +14,8 @@ namespace ShoppingListServer.LiveUpdates
         // if permission == Read then it's send to all users that have read permission on that list.
         Task SendListUpdated(User user, ShoppingList list, ShoppingListPermissionType permission);
 
+        Task SendListPropertyChanged(User user, string listSyncId, string propertyName, string propertyValue, ShoppingListPermissionType permission);
+
         Task SendListRemoved(User user, string listSyncId, ShoppingListPermissionType permission);
 
         Task SendListRemoved(User user, string listSyncId, string userId);

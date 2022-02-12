@@ -17,6 +17,7 @@ namespace ShoppingListServer.Services.Interfaces
             List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission);
             Task<bool> AddList(ShoppingList list, string userID);
             Task<bool> UpdateList(ShoppingList list, string userId);
+            Task<bool> UpdateListProperty(string listSyncId, string userId, string propertyName, string propertyValue);
             Task<bool> DeleteList(string shoppingListId, string userId);
             Task<bool> Update_Item_In_List(string itemNameOld, GenericItem itemNew, string userId, string shoppingListId);
             Task<bool> Add_Or_Update_Product_In_List(GenericProduct productNew, string userId, string shoppingListId);

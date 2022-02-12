@@ -105,6 +105,18 @@ namespace ShoppingListServer.Controllers
                 return BadRequest("Update of item failed. Item not found.");
         }
 
+        [HttpPatch("listproperty")]
+        public async Task<IActionResult> ChangeListProperty([FromBody] object jsonBody)
+        {
+            Tuple<string, string, string> propertyTuple = JsonConvert.DeserializeObject<Tuple<string, string, string>>(jsonBody.ToString());
+            bool ok = await _shoppingService.UpdateListProperty(propertyTuple.Item1, User.FindFirstValue(ClaimTypes.NameIdentifier), propertyTuple.Item2, propertyTuple.Item3);
+
+            if (ok)
+                return Ok();
+            else
+                return BadRequest("Update of list property value failed.");
+        }
+
         [Authorize(Roles = Role.User)]
         [HttpDelete("item")]
         public async Task<IActionResult> Remove_Item_In_List([FromBody] object update_request_json)

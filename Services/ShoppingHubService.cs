@@ -50,6 +50,13 @@ namespace ShoppingListServer.Services
             await _hubContext.Clients.Users(users).SendAsync("ListUpdated", userJson, listJson);
         }
 
+        public async Task SendListPropertyChanged(User user, string listSyncId, string propertyName, string propertyValue, ShoppingListPermissionType permission)
+        {
+            string userJson = JsonConvert.SerializeObject(user.WithoutPassword());
+            List<string> users = GetUsersWithPermissionsFiltered(user, listSyncId, permission);
+            await _hubContext.Clients.Users(users).SendAsync("ListPropertyChanged", userJson, listSyncId, propertyName, propertyValue);
+        }
+
         public async Task SendListRemoved(User user, string listSyncId, ShoppingListPermissionType permission)
         {
             string userJson = JsonConvert.SerializeObject(user.WithoutPassword());
