@@ -56,6 +56,9 @@ namespace ShoppingListServer.Models
         }
 
         [NotMapped]
+        public string Notes { get; set; }
+
+        [NotMapped]
         public List<GenericProduct> ProductList { get; set; }
 
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
