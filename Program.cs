@@ -22,6 +22,7 @@ namespace ShoppingListServer
         }
 
         // Uses the certificates specified in
+        // Calls Configure which sets up Kestrel, see https://docs.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/endpoints?view=aspnetcore-6.0
         // "Kestrel" -> "Certificates" -> "Default"
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)

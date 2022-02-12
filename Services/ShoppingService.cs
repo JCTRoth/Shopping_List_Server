@@ -295,6 +295,8 @@ namespace ShoppingListServer.Services
             return users;
         }
 
+        // Adds the given list permission to target user. Performed by thisUser (thisUser needs permission to change permissions of the given list!)
+        // If target use has no permission yet, they get a message that a new list was added instead of just a permission change.
         // \param thisUser - the user who tries to change the permission
         // \param targetUser - the user whose permission should be changed
         // \param shoppingListId - id of the list whose permission is changed
@@ -329,7 +331,15 @@ namespace ShoppingListServer.Services
                 });
             }
             _db.SaveChanges();
-            await _hubService.SendListPermissionChanged(_userService.GetById(thisUserId), shoppingListId, targetUserId, permission);
+            if (first != null)
+            {
+                await _hubService.SendListPermissionChanged(_userService.GetById(thisUserId), shoppingListId, targetUserId, permission);
+            }
+            else
+            {
+                targetList = LoadShoppingList(shoppingListId);
+                await _hubService.SendListAdded(_userService.GetById(thisUserId), targetList, ShoppingListPermissionType.Read);
+            }
             return true;
         }
 
