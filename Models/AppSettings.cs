@@ -3,6 +3,8 @@ namespace ShoppingListServer.Helpers
     public class AppSettings
     {
         public string Secret { get; set; }
+        public string DataStorageFolder { get; set; }
+        public string UserStorageFolder { get; set; }
         public string NoReplyEMailHost { get; set; }
         public int NoReplyEMailPort { get; set; }
         public string NoReplyEMailAddress { get; set; }

@@ -2,16 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using ShoppingListServer.Database;
-using ShoppingListServer.Entities;
 using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.LiveUpdates;
-using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
@@ -24,21 +19,22 @@ namespace ShoppingListServer.Services
     {
         private readonly IUserService _userService;
         private readonly IShoppingHub _hubService;
+        private readonly IShoppingListStorageService _storageService;
         private readonly AppSettings _appSettings;
-        private readonly Json_Files _json_files;
         private readonly AppDb _db;
 
         public ShoppingService(
             IOptions<AppSettings> appSettings,
             AppDb db,
             IUserService userService,
-            IShoppingHub hubService)
+            IShoppingHub hubService,
+            IShoppingListStorageService storageService)
         {
-            _json_files = new Json_Files();
             _appSettings = appSettings.Value;
             _db = db;
             _hubService = hubService;
             _userService = userService;
+            _storageService = storageService;
         }
 
         public string GetID()
@@ -107,7 +103,7 @@ namespace ShoppingListServer.Services
                     UserId = userID
                 });
                 
-                if (_json_files.Store_ShoppingList(userID, list))
+                if (_storageService.Store_ShoppingList(userID, list))
                 {
                     _db.ShoppingLists.Add(list);
                     _db.SaveChanges();
@@ -440,7 +436,7 @@ namespace ShoppingListServer.Services
             string ownerId = GetOwnerId(shoppingListId);
             if (ownerId != null)
             {
-                return _json_files.Load_ShoppingList(ownerId, shoppingListId);
+                return _storageService.Load_ShoppingList(ownerId, shoppingListId);
             }
             return null;
         }
@@ -451,7 +447,7 @@ namespace ShoppingListServer.Services
             bool success = false;
             if (ownerId != null)
             {
-                success = _json_files.Delete_ShoppingList(ownerId, shoppingListId);
+                success = _storageService.Delete_ShoppingList(ownerId, shoppingListId);
             }
             return success;
         }
@@ -464,7 +460,7 @@ namespace ShoppingListServer.Services
             bool success = false;
             if (ownerId != null)
             {
-                success = _json_files.Store_ShoppingList(ownerId, list);
+                success = _storageService.Store_ShoppingList(ownerId, list);
             }
             return success;
         }

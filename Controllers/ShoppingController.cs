@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Models;
-using ShoppingListServer.Logic;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
 using ShoppingListServer.Services.Interfaces;

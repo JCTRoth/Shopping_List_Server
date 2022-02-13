@@ -22,6 +22,7 @@ services:
       context: .
       dockerfile: ./Dockerfile
     volumes: # mount the ssl certificate files folder in the docker image
+        - shoppingdata:/app/data # must be the same folder name as DataStorageFolder (appsettings.json)
         - type: bind
           source: /etc/letsencrypt/kestrel/ # this folder contains the certificat files
           target: /app/cert-files/
@@ -30,3 +31,4 @@ services:
 
 volumes:
   dbdata:
+  shoppingdata:

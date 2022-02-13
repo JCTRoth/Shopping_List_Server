@@ -2,6 +2,11 @@
 https://github.com/danielroth1/ShoppingListApp
 
 
+# Workflows
+
+
+
+
 ## REST
 /users/authenticate - public route that accepts HTTP POST requests with username and password in the body. If the username and password are correct then a JWT authentication token is returned.
 
@@ -55,6 +60,7 @@ Run the following command once to tell docker to deploy the docker image to the 
 ```
 export DOCKER_HOST=ssh://<user>@vmd70876.contaboserver.net
 ``
+See https://docs.docker.com/compose/production/#running-compose-on-a-single-server
 
 Initially deploy both shoppinglistserver and database, by running the following command:
 ```
@@ -66,6 +72,7 @@ After every change in the server code, you only want to redeploy the shoppinglis
 ```
 docker-compose up -d --no-deps --build shoppinglistserver
 ```
+See https://docs.docker.com/compose/production/#deploying-changes
 
 ## External Server without Docker
 - install mysql on your server and create a schema "shoppinglistserver" with a user "ShoppingListDBUser" and password "mysql-password-1234". This is specified in appsettings.json.
@@ -124,6 +131,21 @@ docker run -d --rm --name 'shoppinglistserver' -p 5678:5678 shoppinglistserver
 Start composed container
 docker-compose up --build && docker-compose rm -fsv
 docker-compose down
+
+
+docker volume ls
+docker volume inspect shoppinglistserver_dbdata
+docker-compose up --build && docker-compose rm -fsv
+docker-compose up -d --no-deps --build shoppinglistserver
+
+Connect to database:
+mysql -u ShoppingListDBUser -p shoppinglistserver
+
+Database commands:
+show tables;
+show Users;
+describe Users;
+INSERT INTO Users VALUES(1, "bla@bla", "bla", "blalast", "username1", "passhash", "rolewhatever", "tokenhuh", "salty");
 
 
 

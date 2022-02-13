@@ -11,7 +11,6 @@ using Microsoft.IdentityModel.Tokens;
 using ShoppingListServer.Database;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Helpers;
-using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 
@@ -22,15 +21,18 @@ namespace ShoppingListServer.Services
         private readonly AppSettings _appSettings;
         private readonly AppDb _db;
         private readonly IUserHub _userHub;
+        private readonly IFilesystemService _filesystemService;
 
         public UserService(
             IOptions<AppSettings> appSettings,
             AppDb db,
-            IUserHub userHub)
+            IUserHub userHub,
+            IFilesystemService filesystemService)
         {
             _appSettings = appSettings.Value;
             _db = db;
             _userHub = userHub;
+            _filesystemService = filesystemService;
         }
 
         public bool AddUser(User new_user, string password)
@@ -58,7 +60,7 @@ namespace ShoppingListServer.Services
             }
 
             // Add User to list
-            if (new Folder().Create_User_Folder(new_user.Id))
+            if (_filesystemService.CreateUserFolder(new_user.Id))
             {
                 HashUserPassword(new_user, password);
 

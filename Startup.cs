@@ -97,6 +97,8 @@ namespace ShoppingListServer
 
             // configure DI for application services
             // Scoped services are created once per request.
+            services.AddScoped<IFilesystemService, FilesystemService>();
+            services.AddScoped<IShoppingListStorageService, ShoppingListStorageSevice>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IEMailVerificationService, EMailVerificationService>();
             services.AddScoped<IShoppingService, ShoppingService>();
