@@ -93,6 +93,33 @@ namespace ShoppingListServer.Services
             }
         }
 
+        public bool Move_ShoppingList(string user_id_old, string user_id_new, string shoppingList_id)
+        {
+            try
+            {
+                string file_path_source =
+                    System.IO.Path.Combine(_filesystemService.GetUserFolderPath(user_id_old), shoppingList_id + ".json");
+                string file_path_dest =
+                    System.IO.Path.Combine(_filesystemService.GetUserFolderPath(user_id_new), shoppingList_id + ".json");
+
+                if (File.Exists(file_path_source))
+                {
+                    File.Move(file_path_source, file_path_dest);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Delete_ShoppingList " + ex);
+                return false;
+            }
+        }
+
         public bool Delete_ShoppingList(string user_id, string shoppingList_id)
         {
             try

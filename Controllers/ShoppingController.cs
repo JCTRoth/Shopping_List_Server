@@ -66,10 +66,14 @@ namespace ShoppingListServer.Controllers
 
         [Authorize(Roles = Role.User)]
         [HttpDelete("list/{syncId}")]
-        public async Task<IActionResult> DeleteList(string syncId)
+        public async Task<IActionResult> DeleteList(string syncId, bool? deleteForEveryone = false)
         {
             string userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            bool deleted = await _shoppingService.DeleteList(userID, syncId);
+            bool deleted = false;
+            if (deleteForEveryone.GetValueOrDefault(false))
+                deleted = await _shoppingService.DeleteListForEveryone(syncId, userID);
+            else
+                deleted = await _shoppingService.DeleteList(syncId, userID, userID); // Delete your own permission from the list.
             if (deleted)
                 return Ok();
             else
@@ -231,7 +235,7 @@ namespace ShoppingListServer.Controllers
                 ShoppingListPermissionType permission =
                     (ShoppingListPermissionType)Enum.Parse(typeof(ShoppingListPermissionType), tupel.Item3, true);
 
-                bool success = await _shoppingService.AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, permission);
+                bool success = await _shoppingService.AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, permission, true);
                 if (success)
                     return Ok();
             }

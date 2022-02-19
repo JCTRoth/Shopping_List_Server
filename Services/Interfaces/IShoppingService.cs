@@ -18,7 +18,11 @@ namespace ShoppingListServer.Services.Interfaces
             Task<bool> AddList(ShoppingList list, string userID);
             Task<bool> UpdateList(ShoppingList list, string userId);
             Task<bool> UpdateListProperty(string listSyncId, string userId, string propertyName, string propertyValue);
-            Task<bool> DeleteList(string shoppingListId, string userId);
+            // Only delets the list if
+            // - deleteForEveryone==true and user with userId has permission
+            // - this is the last user
+            Task<bool> DeleteList(string shoppingListId, string thisUserId, string targetUserId);
+            Task<bool> DeleteListForEveryone(string shoppingListId, string userId);
             Task<bool> Update_Item_In_List(string itemNameOld, GenericItem itemNew, string userId, string shoppingListId);
             Task<bool> Add_Or_Update_Product_In_List(GenericProduct productNew, string userId, string shoppingListId);
             Task<bool> Remove_Item_In_List(string itemName, string userId, string shoppingListId);
@@ -35,7 +39,7 @@ namespace ShoppingListServer.Services.Interfaces
             // Exception: If this user has no read access to the list.
             ShoppingListPermissionType GetUserListPermission(string shoppingListId, string thisUserId, string userId);
 
-            Task<bool> AddOrUpdateListPermission(string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission);
+            Task<bool> AddOrUpdateListPermission(string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission);
             // Remove the permission of a user from a shopping list. Doesn't work if the user is the owner.
 
             Task<bool> RemoveListPermission(string thisUserId, string targetUserId, string shoppingListId);

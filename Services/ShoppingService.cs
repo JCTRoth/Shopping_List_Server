@@ -154,20 +154,45 @@ namespace ShoppingListServer.Services
             return success;
         }
 
-        public async Task<bool> DeleteList(string shoppingListId, string userId)
+        public async Task<bool> DeleteList(string shoppingListId, string thisUserId, string targetUserId)
         {
-            
             ShoppingList listEntity = GetShoppingListEntity(shoppingListId);
             if (listEntity == null)
                 throw new ShoppingListNotFoundException(shoppingListId);
-            CheckPermissionWithException(listEntity, userId, ShoppingListPermissionType.Delete);
-            _db.ShoppingLists.Remove(listEntity);
-            _db.SaveChanges();
-            bool success = DeleteShoppingList(shoppingListId);
+            bool success = await RemoveListPermission(thisUserId, targetUserId, shoppingListId);
             if (success)
             {
-                await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
+                // Send to target user
+                await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
             }
+
+            return success;
+        }
+
+        public async Task<bool> DeleteListForEveryone(string shoppingListId, string userId)
+        {
+            ShoppingList listEntity = GetShoppingListEntity(shoppingListId);
+            if (listEntity == null)
+                throw new ShoppingListNotFoundException(shoppingListId);
+
+            CheckPermissionWithException(listEntity, userId, ShoppingListPermissionType.Delete);
+            // Send to all with permission Read
+            await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
+            bool success = DeleteListWithoutChecks(shoppingListId);
+
+            return success;
+        }
+
+        // Just delets the list without doing any checks, e.g. if this user has
+        // permssion to do so or there are still permissions left.
+        private bool DeleteListWithoutChecks(string shoppingListId)
+        {
+            ShoppingList listEntity = GetShoppingListEntity(shoppingListId);
+            if (listEntity == null)
+                throw new ShoppingListNotFoundException(shoppingListId);
+            bool success = DeleteShoppingListJson(shoppingListId);
+            _db.ShoppingLists.Remove(listEntity);
+            _db.SaveChanges();
             return success;
         }
 
@@ -318,12 +343,16 @@ namespace ShoppingListServer.Services
         // \param targetUser - the user whose permission should be changed
         // \param shoppingListId - id of the list whose permission is changed
         // \param permission - target permission type
-        public async Task<bool> AddOrUpdateListPermission(string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission)
+        public async Task<bool> AddOrUpdateListPermission(
+            string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission = true)
         {
             ShoppingList targetList = GetShoppingListEntity(shoppingListId);
             if (targetList == null)
                 throw new ShoppingListNotFoundException(shoppingListId);
-            CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
+            if (checkPermission)
+                CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
+
+            // TODO: actually move a list if the owner is changed with that method
 
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>()
@@ -369,7 +398,11 @@ namespace ShoppingListServer.Services
             ShoppingList targetList = GetShoppingListEntity(shoppingListId);
             if (targetList == null)
                 throw new ShoppingListNotFoundException(shoppingListId);
-            CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
+
+            // ModifyAccess permission is only required if the permission of another user is changed.
+            // Everyone can always remove their own permission.
+            if (!thisUserId.Equals(targetUserId))
+                CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
 
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>()
@@ -382,6 +415,20 @@ namespace ShoppingListServer.Services
             {
                 first.list.ShoppingListPermissions.Remove(first.perm);
                 _db.SaveChanges();
+
+                if (first.list.ShoppingListPermissions.Count == 0)
+                {
+                    // If this was the last user that had this list assigned, remove it for good.
+                    DeleteListWithoutChecks(shoppingListId);
+                }
+                else if (first.perm.PermissionType == ShoppingListPermissionType.All)
+                {
+                    string newOwner = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
+                    // If the remove user was the owner and there are still other users left,
+                    // assign a different user and move the list to the new owners folder.
+                    await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
+                    _storageService.Move_ShoppingList(targetUserId, newOwner, shoppingListId);
+                }
 
                 // Remove the list for the user whose permission was removed.
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
@@ -441,7 +488,7 @@ namespace ShoppingListServer.Services
             return null;
         }
 
-        private bool DeleteShoppingList(string shoppingListId)
+        private bool DeleteShoppingListJson(string shoppingListId)
         {
             string ownerId = GetOwnerId(shoppingListId);
             bool success = false;
