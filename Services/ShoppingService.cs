@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using ShoppingListServer.Database;
+using ShoppingListServer.Entities;
 using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.LiveUpdates;
@@ -55,8 +56,7 @@ namespace ShoppingListServer.Services
         public List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission)
         {
             var query = from list in _db.Set<ShoppingList>()
-                        join perm in _db.Set<ShoppingListPermission>()
-                            on list.SyncId equals perm.ShoppingListId
+                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
                         where perm.UserId.Equals(userId) && perm.PermissionType.HasFlag(permission)
                         select list;
 
@@ -65,6 +65,15 @@ namespace ShoppingListServer.Services
             foreach (ShoppingList listEntity in listEntities)
             {
                 ShoppingList list = LoadShoppingList(listEntity.SyncId);
+
+                //var queryOwner = from perm in list.ShoppingListPermissions
+                //                 where perm.PermissionType == ShoppingListPermissionType.All
+                //                 select perm.User;
+
+                //var queryOwner = from list in _db.Set<ShoppingList>()
+                //                 join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                //                 where perm.PermissionType == ShoppingListPermissionType.All
+
                 if (list != null)
                     lists.Add(list);
             }

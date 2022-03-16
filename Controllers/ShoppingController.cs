@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using ShoppingListServer.Entities;
+using ShoppingListServer.Helpers;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
@@ -165,7 +166,7 @@ namespace ShoppingListServer.Controllers
                 List<Tuple<User, string>> permissions = new List<Tuple<User, string>>();
                 foreach (Tuple<string, ShoppingListPermissionType> tuple in userPermissions)
                 {
-                    permissions.Add(Tuple.Create(_userService.GetById(tuple.Item1), tuple.Item2.ToString()));
+                    permissions.Add(Tuple.Create(_userService.GetById(tuple.Item1).WithoutPassword(), tuple.Item2.ToString()));
                 }
                 return Ok(permissions);
             }

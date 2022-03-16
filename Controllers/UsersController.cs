@@ -9,6 +9,7 @@ using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Services.Interfaces;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using System.Collections.Generic;
 
 namespace ShoppingListServer.Controllers
 {
@@ -129,7 +130,7 @@ namespace ShoppingListServer.Controllers
         public IActionResult GetById(string id)
         {
             // only allow admin to access other user records
-            var currentUserId = User.Identity.Name;
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (id != currentUserId && !User.IsInRole(Role.User))
                 return Forbid();
@@ -140,6 +141,64 @@ namespace ShoppingListServer.Controllers
                 return NotFound();
 
             return Ok(user.WithoutPassword());
+        }
+
+        // Redirects the user to the main page.
+        //
+        // This link should be catched by the ShoppingNow app before this post request is even sent.
+        // The app will then send a /contact/{userId} post instead which will be processed in AddContact().
+        // If ShoppingNow isn't installed, the user is instead redirected to the main page where
+        // they can find a link to install the app.
+        [HttpPost("contactlink/{userId}")]
+        [AllowAnonymous]
+        public IActionResult AddContactViaLink(string userId)
+        {
+            string redirectToMainPage =
+                "<head>\n" +
+                "<meta http-equiv=\"Refresh\" content=\"0; URL=https://shopping-now.net/\">\n" +
+                "</head>\n";
+            return base.Content(redirectToMainPage, "text/html");
+        }
+
+        [HttpPost("contact")]
+        public IActionResult AddContact([FromBody] object jsonBody)
+        {
+            UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
+            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type);
+            return Ok();
+        }
+
+        [HttpPatch("contact")]
+        public IActionResult UpdateContact([FromBody] object jsonBody)
+        {
+            UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
+            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type);
+            return Ok();
+        }
+
+        [HttpDelete("contact/{userId}")]
+        public IActionResult RemoveContact(string userId)
+        {
+            bool success = _userService.RemoveContact(User.FindFirstValue(ClaimTypes.NameIdentifier), new User() { Id = userId });
+            if (success)
+                return Ok();
+            else
+                return BadRequest("There was no contact to remove.");
+        }
+
+        [HttpGet("contacts")]
+        public IActionResult GetContacts()
+        {
+            List<UserContact> contacts = _userService.GetContacts(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            List<UserContactDTO> contactsReturn = new List<UserContactDTO>();
+            foreach (UserContact contact in contacts)
+            {
+                contactsReturn.Add(new UserContactDTO(contact.UserTarget.WithoutPassword(), contact.UserContactType));
+            }
+            if (contactsReturn != null)
+                return Ok(contactsReturn);
+            else
+                return BadRequest("Something went wrong.");
         }
     }
 }

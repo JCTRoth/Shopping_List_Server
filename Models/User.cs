@@ -37,11 +37,23 @@ namespace ShoppingListServer.Entities
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<ShoppingListPermission> ShoppingListPermissions { get; set; } = new List<ShoppingListPermission>();
 
+        // This users contacts. UserSourceId == this.Id
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<UserContact> UserContactsThis { get; set; } = new List<UserContact>();
+
+        // Other users that have this user as contact. UserTargetId == this.Id
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<UserContact> UserContactsOthers { get; set; } = new List<UserContact>();
+
         // Does not copy EMailVerificationTokens.
         public User Copy()
         {
-            byte[] saltCopy = new byte[Salt.Length];
-            System.Array.Copy(Salt, 0, saltCopy, 0, Salt.Length);
+            byte[] saltCopy = null;
+            if (Salt != null)
+            {
+                saltCopy = new byte[Salt.Length];
+                System.Array.Copy(Salt, 0, saltCopy, 0, Salt.Length);
+            }
             return new User
             {
                 Id = Id == null ? null : new string(Id),

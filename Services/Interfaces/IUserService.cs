@@ -15,5 +15,13 @@ namespace ShoppingListServer.Services.Interfaces
         User GetById(string id);
 
         User GetByEMail(string email);
+
+        bool AddContact(string currentUserId, User targetUser, UserContactType type);
+
+        void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type);
+
+        bool RemoveContact(string currentUserId, User targetUser);
+
+        List<UserContact> GetContacts(string userId);
     }
 }

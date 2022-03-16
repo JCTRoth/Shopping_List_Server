@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShoppingListServer.Database;
 using ShoppingListServer.Entities;
+using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
@@ -144,6 +145,29 @@ namespace ShoppingListServer.Services
             return user;
         }
 
+        // Searches for the given user in the database using the given information.
+        // If the Id is given, it uses that.
+        // If only the EMail is given, it uses that.
+        // If no valid information to identify the user is given, null is returned.
+        // \throws UserNotFoundException if the user hasn't been found.
+        public User FindUser(User user)
+        {
+            User returnUser = null;
+            if (!string.IsNullOrEmpty(user.Id))
+            {
+                returnUser = FindUser_ID(user.Id);
+                if (returnUser == null)
+                    throw new UserNotFoundException(user.Id);
+            }
+            else if (!string.IsNullOrEmpty(user.EMail))
+            {
+                returnUser = FindUser_EMail(user.EMail);
+                if (returnUser == null)
+                    throw new UserNotFoundException(user.EMail);
+            }
+            return returnUser;
+        }
+
         public IEnumerable<User> GetAll()
         {
             return _db.Users.WithoutPasswords();
@@ -159,6 +183,76 @@ namespace ShoppingListServer.Services
         {
             User user = _db.Users.FirstOrDefault(x => x.EMail.Equals(email));
             return user;
+        }
+
+        public bool AddContact(string currentUserId, User targetUser, UserContactType type)
+        {
+            targetUser = FindUser(targetUser);
+            var contactQuery = from c in _db.Set<UserContact>()
+                               where c.UserSourceId == currentUserId && c.UserTargetId == targetUser.Id
+                               select c;
+            UserContact contact = contactQuery.FirstOrDefault();
+            bool success = false;
+            if (contact == null)
+            {
+                _db.Set<UserContact>().Add(new UserContact()
+                {
+                    UserContactType = type,
+                    UserSourceId = currentUserId,
+                    UserTargetId = targetUser.Id
+                });
+                success = true;
+            }
+            return success;
+        }
+
+        public void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type)
+        {
+            targetUser = FindUser(targetUser);
+
+            var contactQuery = from c in _db.Set<UserContact>()
+                               where c.UserSourceId == currentUserId && c.UserTargetId == targetUser.Id
+                               select c;
+            UserContact contact = contactQuery.FirstOrDefault();
+            if (contact != null)
+            {
+                contact.UserContactType = type;
+            }
+            else
+            {
+                _db.Set<UserContact>().Add(new UserContact()
+                {
+                    UserContactType = type,
+                    UserSourceId = currentUserId,
+                    UserTargetId = targetUser.Id
+                });
+            }
+            _db.SaveChanges();
+        }
+
+        public bool RemoveContact(string currentUserId, User targetUser)
+        {
+            targetUser = FindUser(targetUser);
+            var contactQuery = from c in _db.Set<UserContact>()
+                               where c.UserSourceId == currentUserId && c.UserTargetId == targetUser.Id
+                               select c;
+            UserContact contact = contactQuery.FirstOrDefault();
+            bool success = false;
+            if (contact != null)
+            {
+                _db.Set<UserContact>().Remove(contact);
+                success = true;
+            }
+            return success;
+        }
+
+        public List<UserContact> GetContacts(string userId)
+        {
+            var contactQuery = from c in _db.Set<UserContact>()
+                               where c.UserSourceId == userId
+                               select c;
+
+            return contactQuery.ToList();
         }
 
         // Checks if the users password hash matches with the given clear text passwords hash.

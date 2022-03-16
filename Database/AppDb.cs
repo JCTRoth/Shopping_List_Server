@@ -43,15 +43,33 @@ namespace ShoppingListServer.Database
             modelBuilder.Entity<ShoppingListPermission>()
                 .HasKey(accessRight => new { accessRight.ShoppingListId, accessRight.UserId});
 
+            // ShoppingList -> ShoppingListPermission
             modelBuilder.Entity<ShoppingListPermission>()
                 .HasOne(accessRight => accessRight.ShoppingList)
                 .WithMany(shoppingList => shoppingList.ShoppingListPermissions)
                 .HasForeignKey(accessRight => accessRight.ShoppingListId);
 
+            // User -> ShoppingListPermission
             modelBuilder.Entity<ShoppingListPermission>()
                 .HasOne(accessRight => accessRight.User)
                 .WithMany(user => user.ShoppingListPermissions)
                 .HasForeignKey(accessRight => accessRight.UserId);
+
+            // n-n UserContacts
+            modelBuilder.Entity<UserContact>()
+                .HasKey(accessRight => new { accessRight.UserSourceId, accessRight.UserTargetId });
+
+            // UserSource -> UserContact
+            modelBuilder.Entity<UserContact>()
+                .HasOne(accessRight => accessRight.UserSource)
+                .WithMany(user => user.UserContactsThis)
+                .HasForeignKey(accessRight => accessRight.UserSourceId);
+
+            // UserTarget -> UserContact
+            modelBuilder.Entity<UserContact>()
+                .HasOne(accessRight => accessRight.UserTarget)
+                .WithMany(user => user.UserContactsOthers)
+                .HasForeignKey(accessRight => accessRight.UserTargetId);
 
             // Store DateTime in Database in UTC, see
             // https://stackoverflow.com/a/61243301
