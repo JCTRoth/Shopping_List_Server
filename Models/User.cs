@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Drawing;
 using Newtonsoft.Json;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
@@ -16,6 +18,15 @@ namespace ShoppingListServer.Entities
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string Username { get; set; }
+        // User Color.ToArgb() and Color.FromArgb(Color) to work with this.
+        public System.Int32? ColorArgb { get; set; }
+        // Method to access ColorArgb as a System.Drawing.Color
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore,NotMapped]
+        public Color? Color
+        {
+            get => ColorArgb.HasValue ? System.Drawing.Color.FromArgb(ColorArgb.Value) : null;
+            set => ColorArgb = value.HasValue ? value.Value.ToArgb() : null;
+        }
         // Hashed Password
         public string PasswordHash { get; set; }
         // Salt: part of the hashing algorithm.
@@ -61,7 +72,8 @@ namespace ShoppingListServer.Entities
                 FirstName = FirstName == null ? null : new string(FirstName),
                 LastName = LastName == null ? null : new string(LastName),
                 Username = Username == null ? null : new string(Username),
-                PasswordHash = Username == null ? null : new string(Username),
+                ColorArgb = ColorArgb,
+                PasswordHash = PasswordHash == null ? null : new string(PasswordHash),
                 Salt = saltCopy,
                 Role = Role == null ? null : new string(Role),
                 Token = Token == null ? null : new string(Token),

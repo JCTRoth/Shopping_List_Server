@@ -208,8 +208,6 @@ namespace ShoppingListServer
                 var context = serviceScope.ServiceProvider.GetRequiredService<AppDb>();
                 context.Database.Migrate();
             }
-
-
         }
 
         private void Unhandled_Exceptions(object sender, UnhandledExceptionEventArgs e)

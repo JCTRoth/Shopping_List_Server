@@ -168,6 +168,49 @@ namespace ShoppingListServer.Services
             return returnUser;
         }
 
+        // Changing the email requires a new email verification.
+        // To not change a field, just set it null.
+        // Changes the following user properties:
+        // - FirstName
+        // - LastName
+        // - UserName
+        // - EMail
+        // - Color (color can not be set null)
+        public bool UpdateUser(string currentUserId, User userUpdate)
+        {
+            User currentUser = GetById(currentUserId);
+            // EMail
+            if (currentUser.EMail != userUpdate.EMail)
+            {
+                // now requires new email verification.
+                currentUser.EMail = userUpdate.EMail;
+                currentUser.IsVerified = false;
+            }
+            // FirstName
+            if (!string.IsNullOrEmpty(userUpdate.FirstName))
+                currentUser.FirstName = userUpdate.FirstName;
+            // LastName
+            if (!string.IsNullOrEmpty(userUpdate.LastName))
+                currentUser.LastName = userUpdate.LastName;
+            // Username
+            if (!string.IsNullOrEmpty(userUpdate.Username))
+                currentUser.Username = userUpdate.Username;
+            // Color
+            if (userUpdate.ColorArgb.HasValue)
+                currentUser.ColorArgb = userUpdate.ColorArgb;
+            
+            _db.SaveChanges();
+            return true;
+        }
+
+        public bool UpdateUserPassword(string currentUserId, string password)
+        {
+            User currentUser = GetById(currentUserId);
+            HashUserPassword(currentUser, password);
+            _db.SaveChanges();
+            return true;
+        }
+
         public IEnumerable<User> GetAll()
         {
             return _db.Users.WithoutPasswords();

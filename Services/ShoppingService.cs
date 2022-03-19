@@ -142,6 +142,10 @@ namespace ShoppingListServer.Services
             return success;
         }
 
+        // Updates the lists property with the given name.
+        // \param listSyncId - syncd id of the list that is to be updated.
+        // \param userId - user id of the user that tries to perform this action.
+        // \param propertyName - property to be updates. Currently supported are "Date" and "Notes"
         public async Task<bool> UpdateListProperty(string listSyncId, string userId, string propertyName, string propertyValue)
         {
             ShoppingList listEntity = GetShoppingListEntity(listSyncId);

@@ -17,6 +17,10 @@ namespace ShoppingListServer.Services.Interfaces
             List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission);
             Task<bool> AddList(ShoppingList list, string userID);
             Task<bool> UpdateList(ShoppingList list, string userId);
+            // Updates the lists property with the given name.
+            // \param listSyncId - syncd id of the list that is to be updated.
+            // \param userId - user id of the user that tries to perform this action.
+            // \param propertyName - property to be updates. Currently supported are "Date" and "Notes"
             Task<bool> UpdateListProperty(string listSyncId, string userId, string propertyName, string propertyValue);
             // Only delets the list if
             // - deleteForEveryone==true and user with userId has permission

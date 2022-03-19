@@ -125,6 +125,45 @@ namespace ShoppingListServer.Controllers
         }
         */
 
+        // Updates a user given a User serialized json object. Only fields
+        // that are not null are updated. It't possible to update the following
+        // properties with this method:
+        // - FirstName
+        // - LastName
+        // - UserName
+        // - EMail
+        // - Color
+        //
+        // Update the password with a PATCH request to /users/password.
+        [HttpPatch("user")]
+        public IActionResult UpdateUser([FromBody] object jsonBody)
+        {
+            User userUpdate = JsonConvert.DeserializeObject<User>(jsonBody.ToString());
+            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            bool success = _userService.UpdateUser(currentUserId, userUpdate);
+            if (success)
+                return Ok();
+            else
+                return BadRequest("Something went wrong :(");
+        }
+
+        // Update the currently logged ins password. The password will not
+        // be stored in clear text but instead in a hashed form using a
+        // secure SHA​-512 hashing operation with a random salt.
+        // Warning: Currently, it is possible to change the password without providing the current password.
+        //          This would allow someone else that has access to the device to change the password without the owner noticing.
+        // \jsonBody - serialized json string object that is the password in clear text.
+        [HttpPatch("password")]
+        public IActionResult UpdatePassword([FromBody] object jsonBody)
+        {
+            string passwordUpdate = JsonConvert.DeserializeObject<string>(jsonBody.ToString());
+            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            bool success = _userService.UpdateUserPassword(currentUserId, passwordUpdate);
+            if (success)
+                return Ok();
+            else
+                return BadRequest("Something went wrong :(");
+        }
 
         [HttpGet("{id}")]
         public IActionResult GetById(string id)
@@ -135,7 +174,7 @@ namespace ShoppingListServer.Controllers
             if (id != currentUserId && !User.IsInRole(Role.User))
                 return Forbid();
 
-            var user =  _userService.GetById(id);
+            var user = _userService.GetById(id);
 
             if (user == null)
                 return NotFound();
