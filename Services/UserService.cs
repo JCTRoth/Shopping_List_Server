@@ -284,6 +284,7 @@ namespace ShoppingListServer.Services
             if (contact != null)
             {
                 _db.Set<UserContact>().Remove(contact);
+                _db.SaveChanges();
                 success = true;
             }
             return success;
