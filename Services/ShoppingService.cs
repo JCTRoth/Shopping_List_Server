@@ -362,8 +362,6 @@ namespace ShoppingListServer.Services
             ShoppingList targetList = GetShoppingListEntity(shoppingListId);
             if (targetList == null)
                 throw new ShoppingListNotFoundException(shoppingListId);
-            if (checkPermission)
-                CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
 
             // TODO: actually move a list if the owner is changed with that method
 
@@ -375,10 +373,14 @@ namespace ShoppingListServer.Services
             var first = query.FirstOrDefault();
             if (first != null)
             {
+                if (checkPermission)
+                    CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyPermission);
                 first.perm.PermissionType = permission;
             }
             else
             {
+                if (checkPermission)
+                    CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.AddPermission);
                 ShoppingList list = GetShoppingListEntity(shoppingListId);
                 if (list == null)
                     throw new ShoppingListNotFoundException(shoppingListId);
@@ -415,7 +417,7 @@ namespace ShoppingListServer.Services
             // ModifyAccess permission is only required if the permission of another user is changed.
             // Everyone can always remove their own permission.
             if (!thisUserId.Equals(targetUserId))
-                CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyAccess);
+                CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyPermission);
 
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>()

@@ -59,7 +59,12 @@ To work with docker, you can use the terminal.
 Run the following command once to tell docker to deploy the docker image to the server instead of your machine:
 ```
 export DOCKER_HOST=ssh://<user>@vmd70876.contaboserver.net
-``
+```
+or on Windows
+```
+set DOCKER_HOST=ssh://<user>@vmd70876.contaboserver.net
+```
+
 See https://docs.docker.com/compose/production/#running-compose-on-a-single-server
 
 Initially deploy both shoppinglistserver and database, by running the following command:
