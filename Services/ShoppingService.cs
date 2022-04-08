@@ -66,16 +66,23 @@ namespace ShoppingListServer.Services
             {
                 ShoppingList list = LoadShoppingList(listEntity.SyncId);
 
-                //var queryOwner = from perm in list.ShoppingListPermissions
-                //                 where perm.PermissionType == ShoppingListPermissionType.All
-                //                 select perm.User;
-
-                //var queryOwner = from list in _db.Set<ShoppingList>()
-                //                 join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
-                //                 where perm.PermissionType == ShoppingListPermissionType.All
-
                 if (list != null)
+                {
+                    if (listEntity.Owner != null)
+                    {
+                        bool isBlocked;
+                        var blockedQuery = from userContact in _db.Set<UserContact>()
+                                           where userContact.UserSourceId == userId &&
+                                                 userContact.UserTargetId == listEntity.Owner.Id &&
+                                                 userContact.UserContactType == UserContactType.Ignored
+                                           select userContact;
+                        isBlocked = blockedQuery.FirstOrDefault() != null;
+                        if (isBlocked)
+                            continue;
+                    }
+
                     lists.Add(list);
+                }
             }
             return lists;
         }
@@ -104,6 +111,7 @@ namespace ShoppingListServer.Services
             else
             {
                 list.SyncId = Guid.NewGuid().ToString();
+                list.Owner = _userService.GetById(userID);
                 list.ShoppingListPermissions = new List<ShoppingListPermission>();
                 list.ShoppingListPermissions.Add(new ShoppingListPermission()
                 {
@@ -436,14 +444,17 @@ namespace ShoppingListServer.Services
                     // If this was the last user that had this list assigned, remove it for good.
                     DeleteListWithoutChecks(shoppingListId);
                 }
-                else if (first.perm.PermissionType == ShoppingListPermissionType.All)
-                {
-                    string newOwner = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
-                    // If the remove user was the owner and there are still other users left,
-                    // assign a different user and move the list to the new owners folder.
-                    await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
-                    _storageService.Move_ShoppingList(targetUserId, newOwner, shoppingListId);
-                }
+                // List owners don't change. Even if the owner has no access permissions to his own
+                // list, they remain the owner of the list. This is done to avoid moving lists
+                // around to new folders.
+                //else if (first.perm.PermissionType == ShoppingListPermissionType.All)
+                //{
+                //    string newOwner = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
+                //    // If the remove user was the owner and there are still other users left,
+                //    // assign a different user and move the list to the new owners folder.
+                //    await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
+                //    _storageService.Move_ShoppingList(targetUserId, newOwner, shoppingListId);
+                //}
 
                 // Remove the list for the user whose permission was removed.
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
@@ -485,11 +496,19 @@ namespace ShoppingListServer.Services
 
         private string GetOwnerId(string shoppingListId)
         {
-            var query = from perm in _db.Set<ShoppingListPermission>()
-                        where perm.ShoppingListId == shoppingListId && perm.PermissionType.HasFlag(ShoppingListPermissionType.All)
-                        select perm.UserId;
-            var owner = query.FirstOrDefault();
-            return owner;
+            var queryList = from l in _db.Set<ShoppingList>()
+                        where l.SyncId == shoppingListId
+                        select l;
+            var list = queryList.FirstOrDefault();
+            if (list.Owner == null)
+            {
+                var queryOwner = from perm in _db.Set<ShoppingListPermission>()
+                            where perm.ShoppingListId == shoppingListId && perm.PermissionType.HasFlag(ShoppingListPermissionType.All)
+                            select perm.UserId;
+                var owner = queryOwner.FirstOrDefault();
+                return owner;
+            }
+            return list.Owner.Id;
         }
 
         // Loads the json file of the shopping list with the given id.

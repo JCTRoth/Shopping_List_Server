@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using Newtonsoft.Json;
+using ShoppingListServer.Entities;
 using ShoppingListServer.Models.ShoppingData;
 
 namespace ShoppingListServer.Models
@@ -21,6 +22,19 @@ namespace ShoppingListServer.Models
         // Functions as bridge between Json files, Database, and API calls.
         [Key]
         public string SyncId { get; set; }
+
+        /// <summary>
+        /// The list owner is the one that created the list. The list is stored under the owners folder.
+        /// Owner can't change. Even if the owner doesn't has permissions to their own list, the remain the owner.
+        /// This is done to reduce complexity. It's not necessary to reassign owners.
+        /// 
+        /// Additionally, owners are used to check if a list is blocked which is the case
+        /// if the lists owner is blocked by another user. Blocked lists are not send to clients (they don't want to see them).
+        /// 
+        /// Owners are not relevant for clients. Never assume that a list that was sent by a client contains an owner.
+        /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual User Owner { get; set; }
 
         [NotMapped]
         public string Name { get; set; }

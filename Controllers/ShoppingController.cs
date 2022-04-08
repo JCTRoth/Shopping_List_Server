@@ -40,6 +40,12 @@ namespace ShoppingListServer.Controllers
                 return BadRequest(new { message = "Not Found" });
         }
 
+        /// <summary>
+        /// Returns all lists that the logged in user has access to.
+        /// 
+        /// Lists whose owner are blocked are not included even if the user has access.
+        /// </summary>
+        /// <returns>List of ShoppingLists</returns>
         [Authorize(Roles = Role.User)]
         [HttpGet("lists")]
         public IActionResult GetLists()
