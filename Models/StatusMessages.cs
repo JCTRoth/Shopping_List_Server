@@ -1,0 +1,23 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace ShoppingListServer.Models
+{
+    /// <summary>
+    /// Messages that can be expected from the server.
+    /// Note: If you change them, the make sure to apply the same changes on the client.
+    /// Any changes can lead to wrong behavior of older client versions.
+    /// </summary>
+    public class StatusMessages
+    {
+        public static string EMailInUse = "The E-Mail is already in use.";
+        public static string EMailInvalid = "E-Mail invalid";
+        public static string ItemNotFound = "The requested item has not been found.";
+        public static string MissingShoppingListPermission = "Operation for this shopping list is not allowed by user.";
+        public static string ShoppingListNotFound = "Target shopping list could not be found.";
+        public static string UserNotFound = "Target user could not be found.";
+        public static string PasswordIncorrect = "The entered password is not correct.";
+    }
+}

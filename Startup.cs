@@ -19,6 +19,7 @@ using ShoppingListServer.Helpers;
 using ShoppingListServer.Services;
 using ShoppingListServer.LiveUpdates;
 using ShoppingListServer.Services.Interfaces;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace ShoppingListServer
 {
@@ -163,6 +164,8 @@ namespace ShoppingListServer
                 var exception = exceptionHandlerPathFeature.Error;
 
                 var result = JsonConvert.SerializeObject(new { error = exception.Message });
+                // Setting the reason phrase: https://stackoverflow.com/a/42039124
+                context.Response.HttpContext.Features.Get<IHttpResponseFeature>().ReasonPhrase = exception.Message;
                 context.Response.ContentType = "application/json";
                 await context.Response.WriteAsync(result);
             }));
@@ -188,7 +191,8 @@ namespace ShoppingListServer
             if (appSettings.UseHttpsRedirect == "True")
                 app.UseHttpsRedirection();
 #if DEBUG
-            app.UseDeveloperExceptionPage();
+            // This overwrites the exception handler from the call app.UseExceptionHandler() above.
+            //app.UseDeveloperExceptionPage();
             app.UseHsts();
 #else
             app.UseHsts();

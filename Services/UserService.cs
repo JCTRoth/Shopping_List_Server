@@ -36,25 +36,28 @@ namespace ShoppingListServer.Services
             _filesystemService = filesystemService;
         }
 
+        /// <summary>
+        /// Adds a new user by adding a new entry in the database.
+        /// </summary>
+        /// <exception cref="EMailIInvalidException">If the new users email is invalid (wrong formating/ illegal hosts)</exception>
+        /// <exception cref="EMailInUseException">If the new users email is already in use.</exception>
+        /// <param name="new_user"></param>
+        /// <param name="password">The password of the new user. The passwords hash is stored in the database (not the cleartext password!).</param>
+        /// <returns>If succesfull (usually only not succesfull if there is already a user with that id)</returns>
         public bool AddUser(User new_user, string password)
         {
-            // When Email address was set, than check if valid
-            if(! string.IsNullOrEmpty(new_user.EMail))
-            {
-                if (! new Mail_Tools().Is_Valid_Email(new_user.EMail))
-                {
-                    // Not Valid
-                    return false;
-                }
-            }
+            // Check if the given email is valid (formating / no illegal hosts).
+            // The email has to be set (can not be null or empty).
+            CheckIfEMailValidException(new_user.EMail);
+
+            // Check if E-Mail already taken and if so, throw exception.
+            CheckIfEMailAlreadyInUseException(new_user.EMail);
 
             // Check if user in list
             // ID
             bool id = _db.Users.Any(user => user.Id == new_user.Id);
-            // EMail
-            bool email = _db.Users.Any(user => user.EMail == new_user.EMail);
 
-            if(id || email)
+            if (id)
             {
                 // User is already in List
                 return false; 
@@ -78,23 +81,10 @@ namespace ShoppingListServer.Services
         public Result Authenticate(string id, string email, string password)
         {
             Result result = new Result();
-            User user = null;
-
-            if (!string.IsNullOrEmpty(id))
-            {
-                user = FindUser_ID(id);
-            }
-            else if (!string.IsNullOrEmpty(email))
-            {
-                user = FindUser_EMail(email);
-            }
+            User user = FindUser(id, email);
 
             // return null if user not found
-            if (user == null || !IsUserPasswordValid(user, password))
-            {
-                result.WasFound = false;
-                return result;
-            }
+            CheckUserPasswordValidException(user, password);
 
             // authentication successful so generate jwt token
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -145,25 +135,39 @@ namespace ShoppingListServer.Services
             return user;
         }
 
-        // Searches for the given user in the database using the given information.
-        // If the Id is given, it uses that.
-        // If only the EMail is given, it uses that.
-        // If no valid information to identify the user is given, null is returned.
-        // \throws UserNotFoundException if the user hasn't been found.
+        /// <summary>
+        /// Searches for a user in the database with either the given id or the email.
+        /// If the Id is given, it uses that.
+        /// If only the EMail is given, it uses that.
+        /// If either is not null and the search fails, a UserNotFoundException is thrown.
+        /// </summary>
+        /// <returns>The found user</returns>
         public User FindUser(User user)
         {
+            return FindUser(user.Id, user.EMail);
+        }
+
+        /// <summary>
+        /// Searches for a user in the database with either the given id or the email.
+        /// If the Id is given, it uses that.
+        /// If only the EMail is given, it uses that.
+        /// If either is not null and the search fails, a UserNotFoundException is thrown.
+        /// </summary>
+        /// <returns>The found user</returns>
+        public User FindUser(string id, string email)
+        {
             User returnUser = null;
-            if (!string.IsNullOrEmpty(user.Id))
+            if (!string.IsNullOrEmpty(id))
             {
-                returnUser = FindUser_ID(user.Id);
+                returnUser = FindUser_ID(id);
                 if (returnUser == null)
-                    throw new UserNotFoundException(user.Id);
+                    throw new UserNotFoundException(id);
             }
-            else if (!string.IsNullOrEmpty(user.EMail))
+            else if (!string.IsNullOrEmpty(email))
             {
-                returnUser = FindUser_EMail(user.EMail);
+                returnUser = FindUser_EMail(email);
                 if (returnUser == null)
-                    throw new UserNotFoundException(user.EMail);
+                    throw new UserNotFoundException(email);
             }
             return returnUser;
         }
@@ -182,6 +186,12 @@ namespace ShoppingListServer.Services
             // EMail
             if (currentUser.EMail != userUpdate.EMail)
             {
+                // Check if the email is set and it's valid (formating / no illegal hosts).
+                CheckIfEMailValidException(userUpdate.EMail);
+
+                // Check if E-Mail already taken and if so, throw exception.
+                CheckIfEMailAlreadyInUseException(userUpdate.EMail);
+
                 // now requires new email verification.
                 currentUser.EMail = userUpdate.EMail;
                 currentUser.IsVerified = false;
@@ -309,6 +319,12 @@ namespace ShoppingListServer.Services
             return user.PasswordHash.Equals(passwordHash);
         }
 
+        private void CheckUserPasswordValidException(User user, string password)
+        {
+            if (!IsUserPasswordValid(user, password))
+                throw new PasswordIncorrectException(user);
+        }
+
         // Hashes the given password and stores the hash along with its salt in the database.
         // Later, user IsUserPasswordValid to check the validity of the password.
         private void HashUserPassword(User user, string password)
@@ -334,6 +350,54 @@ namespace ShoppingListServer.Services
                 prf: KeyDerivationPrf.HMACSHA512,
                 iterationCount: 10000,
                 numBytesRequested: 32));
+        }
+
+        /// <summary>
+        /// Checks if the given email is valid (formating / no illegal hosts).
+        /// </summary>
+        /// <returns>true if it's valid</returns>
+        public bool CheckIfEMailValid(string eMail)
+        {
+            bool isValid = !string.IsNullOrEmpty(eMail);
+            if (isValid)
+                isValid = new Mail_Tools().Is_Valid_Email(eMail);
+            return isValid;
+        }
+
+        /// <summary>
+        /// Checks if the given email is valid (formatig / no illegal hosts) and if not, throws an EMailIInvalidException.
+        /// The email is also invalid if it's null or empty.
+        /// </summary>
+        /// <exception cref="EMailIInvalidException">thrown if email is invalid</exception>
+        /// <param name="eMail">Given email to be checked.</param>
+        public void CheckIfEMailValidException(string eMail)
+        {
+            if (!CheckIfEMailValid(eMail))
+                throw new EMailIInvalidException(eMail);
+        }
+
+        /// <summary>
+        /// Checks if the given E-Mail is already in use (by any user).
+        /// The email is also invalid if it's null or empty.
+        /// </summary>
+        /// <param name="eMail"></param>
+        /// <returns></returns>
+        public bool CheckIfEMailAlreadyInUse(string eMail)
+        {
+            var query = from user in _db.Set<User>()
+                        where user.EMail == eMail
+                        select user;
+            return query.Any();
+        }
+
+        /// <summary>
+        /// Checks if the target e-mail is already in use and if so throws an EMailInUseException.
+        /// </summary>
+        /// <exception cref="EMailInUseException">If the target e-mail is alreayd in use.</exception>
+        public void CheckIfEMailAlreadyInUseException(string eMail)
+        {
+            if (CheckIfEMailAlreadyInUse(eMail))
+                throw new EMailInUseException(eMail);
         }
     }
 }
