@@ -444,17 +444,26 @@ namespace ShoppingListServer.Services
                     // If this was the last user that had this list assigned, remove it for good.
                     DeleteListWithoutChecks(shoppingListId);
                 }
-                // List owners don't change. Even if the owner has no access permissions to his own
-                // list, they remain the owner of the list. This is done to avoid moving lists
-                // around to new folders.
-                //else if (first.perm.PermissionType == ShoppingListPermissionType.All)
-                //{
-                //    string newOwner = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
-                //    // If the remove user was the owner and there are still other users left,
-                //    // assign a different user and move the list to the new owners folder.
-                //    await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
-                //    _storageService.Move_ShoppingList(targetUserId, newOwner, shoppingListId);
-                //}
+                // The list Admin (person with all permissions) can change. There needs
+                // to be at least one admin so when one is removed, check if there is another one and
+                // if there isn't, assign someone. If there was no admin left, noone would be able to remove users
+                // from the list anymore.
+                else if (first.perm.PermissionType == ShoppingListPermissionType.All)
+                {
+                    bool containsAdmin = first.list.ShoppingListPermissions.Any(perm => perm.PermissionType == ShoppingListPermissionType.All);
+                    if (!containsAdmin)
+                    {
+                        string newAdmin = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
+                        await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
+
+                        // List owners don't change. Even if the owner has no access permissions to his own
+                        // list, they remain the owner of the list. This is done to avoid moving lists
+                        // around to new folders.
+                        // If the remove user was the owner and there are still other users left,
+                        // assign a different user and move the list to the new owners folder.
+                        // _storageService.Move_ShoppingList(targetUserId, newOwner, shoppingListId);
+                    }
+                }
 
                 // Remove the list for the user whose permission was removed.
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
