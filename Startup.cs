@@ -102,6 +102,7 @@ namespace ShoppingListServer
             services.AddScoped<IShoppingListStorageService, ShoppingListStorageSevice>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IEMailVerificationService, EMailVerificationService>();
+            services.AddScoped<IResetPasswordService, ResetPasswordService>();
             services.AddScoped<IShoppingService, ShoppingService>();
             // Transient services are created each time they are requested.
             services.AddTransient<IUserHub, UserHubService>();

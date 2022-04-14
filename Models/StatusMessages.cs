@@ -19,5 +19,8 @@ namespace ShoppingListServer.Models
         public static string ShoppingListNotFound = "Target shopping list could not be found.";
         public static string UserNotFound = "Target user could not be found.";
         public static string PasswordIncorrect = "The entered password is not correct.";
+        public static string PasswordResetCodeExpired = "Code expired.";
+        public static string PasswordResetCodeMissing = "Wrong Code";
+        public static string EMailVerificationLinkExpired = "Link expired.";
     }
 }

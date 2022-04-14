@@ -6,9 +6,10 @@ namespace ShoppingListServer.Services.Interfaces
 {
     public interface IUserService
     {
-        Result Authenticate(string id, string email, string password);
-
         bool AddUser(User new_user, string password);
+        Result Authenticate(string id, string email, string password);
+        User FindUser(User user);
+        User FindUser(string id, string email);
 
         // Changing the email requires a new email verification.
         // To not change a field, just set it null.
@@ -33,6 +34,13 @@ namespace ShoppingListServer.Services.Interfaces
         void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type);
 
         bool RemoveContact(string currentUserId, User targetUser);
+        /// <summary>
+        /// Generates and stores a new password for the given user given the cleartext password.
+        /// The cleartext password is not stored.
+        /// </summary>
+        /// <param name="user">User for which a password is stored.</param>
+        /// <param name="password">cleartext password</param>
+        void HashUserPassword(User user, string password);
 
         List<UserContact> GetContacts(string userId);
     }

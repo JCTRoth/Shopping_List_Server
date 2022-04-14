@@ -101,7 +101,7 @@ namespace ShoppingListServer.Services
             if (t != null)
             {
                 if (DateTime.UtcNow > t.ExpirationTime)
-                    throw new Exception("Link Expired");
+                    throw new Exception(StatusMessages.EMailVerificationLinkExpired);
                 var userQuery = from token in _db.Set<EMailVerificationToken>()
                                 join user in _db.Set<User>()
                                 on token.UserId equals user.Id

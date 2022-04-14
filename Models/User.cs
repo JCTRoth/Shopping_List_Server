@@ -46,6 +46,9 @@ namespace ShoppingListServer.Entities
         public virtual List<EMailVerificationToken> EMailVerificationTokens { get; set; } = new List<EMailVerificationToken>();
 
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<ResetPasswordToken> ResetPasswordTokens { get; set; } = new List<ResetPasswordToken>();
+
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<ShoppingListPermission> ShoppingListPermissions { get; set; } = new List<ShoppingListPermission>();
 
         // This users contacts. UserSourceId == this.Id

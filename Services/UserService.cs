@@ -153,6 +153,7 @@ namespace ShoppingListServer.Services
         /// If only the EMail is given, it uses that.
         /// If either is not null and the search fails, a UserNotFoundException is thrown.
         /// </summary>
+        /// <exception cref="UserNotFoundException">If the user could not be found.</exception>
         /// <returns>The found user</returns>
         public User FindUser(string id, string email)
         {
@@ -327,7 +328,7 @@ namespace ShoppingListServer.Services
 
         // Hashes the given password and stores the hash along with its salt in the database.
         // Later, user IsUserPasswordValid to check the validity of the password.
-        private void HashUserPassword(User user, string password)
+        public void HashUserPassword(User user, string password)
         {
             // Salt length of 128 bit is recommended by the US National Institute of Standards and Technology, see https://en.wikipedia.org/wiki/PBKDF2
             user.Salt = new byte[16];
@@ -356,7 +357,7 @@ namespace ShoppingListServer.Services
         /// Checks if the given email is valid (formating / no illegal hosts).
         /// </summary>
         /// <returns>true if it's valid</returns>
-        public bool CheckIfEMailValid(string eMail)
+        private bool CheckIfEMailValid(string eMail)
         {
             bool isValid = !string.IsNullOrEmpty(eMail);
             if (isValid)
@@ -370,7 +371,7 @@ namespace ShoppingListServer.Services
         /// </summary>
         /// <exception cref="EMailIInvalidException">thrown if email is invalid</exception>
         /// <param name="eMail">Given email to be checked.</param>
-        public void CheckIfEMailValidException(string eMail)
+        private void CheckIfEMailValidException(string eMail)
         {
             if (!CheckIfEMailValid(eMail))
                 throw new EMailIInvalidException(eMail);
@@ -382,7 +383,7 @@ namespace ShoppingListServer.Services
         /// </summary>
         /// <param name="eMail"></param>
         /// <returns></returns>
-        public bool CheckIfEMailAlreadyInUse(string eMail)
+        private bool CheckIfEMailAlreadyInUse(string eMail)
         {
             var query = from user in _db.Set<User>()
                         where user.EMail == eMail
@@ -394,7 +395,7 @@ namespace ShoppingListServer.Services
         /// Checks if the target e-mail is already in use and if so throws an EMailInUseException.
         /// </summary>
         /// <exception cref="EMailInUseException">If the target e-mail is alreayd in use.</exception>
-        public void CheckIfEMailAlreadyInUseException(string eMail)
+        private void CheckIfEMailAlreadyInUseException(string eMail)
         {
             if (CheckIfEMailAlreadyInUse(eMail))
                 throw new EMailInUseException(eMail);
