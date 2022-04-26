@@ -107,6 +107,14 @@ namespace ShoppingListServer.Controllers
             }
         }
 
+        /// <summary>
+        /// Requests the server to resend the verification mail that contains
+        /// a link to verify your entered E-Mail address.
+        /// 
+        /// Possible StatusMessages:
+        /// <see cref="StatusMessages.UserIsAlreadyVerified"/>
+        /// <see cref="StatusMessages.UserHasNoEMailAddress"/>
+        /// </summary>
         [HttpPost("resendVerificationEMail")]
         public async Task<IActionResult> ResendVerificationEMail()
         {

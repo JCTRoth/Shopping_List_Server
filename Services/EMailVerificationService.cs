@@ -35,10 +35,17 @@ namespace ShoppingListServer.Services
             _userHub = userHub;
         }
 
+        /// <summary>
+        /// Possible StatusMessages:
+        /// <see cref="StatusMessages.UserIsAlreadyVerified"/>
+        /// <see cref="StatusMessages.UserHasNoEMailAddress"/>
+        /// </summary>
         public async Task<bool> SendEMailVerificationCodeAndAddToken(User user)
         {
+            if (user.IsVerified)
+                throw new Exception(StatusMessages.UserIsAlreadyVerified);
             if (string.IsNullOrEmpty(user.EMail))
-                return false;
+                throw new Exception(StatusMessages.UserHasNoEMailAddress);
             EMailVerificationToken token = AddEMailVerificationToken(user);
             return await SendEMailWithUrlCode(user.EMail, token.UrlCode);
         }

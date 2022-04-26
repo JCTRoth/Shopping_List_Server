@@ -22,5 +22,7 @@ namespace ShoppingListServer.Models
         public static string PasswordResetCodeExpired = "Code expired.";
         public static string PasswordResetCodeMissing = "Wrong Code";
         public static string EMailVerificationLinkExpired = "Link expired.";
+        public static string UserIsAlreadyVerified = "User is already verified.";
+        public static string UserHasNoEMailAddress = "User has no E-Mail address.";
     }
 }
