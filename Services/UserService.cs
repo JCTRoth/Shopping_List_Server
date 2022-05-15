@@ -12,6 +12,7 @@ using ShoppingListServer.Database;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
+using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 
@@ -239,28 +240,7 @@ namespace ShoppingListServer.Services
             return user;
         }
 
-        public bool AddContact(string currentUserId, User targetUser, UserContactType type)
-        {
-            targetUser = FindUser(targetUser);
-            var contactQuery = from c in _db.Set<UserContact>()
-                               where c.UserSourceId == currentUserId && c.UserTargetId == targetUser.Id
-                               select c;
-            UserContact contact = contactQuery.FirstOrDefault();
-            bool success = false;
-            if (contact == null)
-            {
-                _db.Set<UserContact>().Add(new UserContact()
-                {
-                    UserContactType = type,
-                    UserSourceId = currentUserId,
-                    UserTargetId = targetUser.Id
-                });
-                success = true;
-            }
-            return success;
-        }
-
-        public void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type)
+        public void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate)
         {
             targetUser = FindUser(targetUser);
 
@@ -270,7 +250,14 @@ namespace ShoppingListServer.Services
             UserContact contact = contactQuery.FirstOrDefault();
             if (contact != null)
             {
-                contact.UserContactType = type;
+                if (allowUpdate)
+                {
+                    contact.UserContactType = type;
+                }
+                else
+                {
+                    throw new Exception(StatusMessages.ContactAlreadyAdded);
+                }
             }
             else
             {
@@ -351,6 +338,51 @@ namespace ShoppingListServer.Services
                 prf: KeyDerivationPrf.HMACSHA512,
                 iterationCount: 10000,
                 numBytesRequested: 32));
+        }
+
+        public string GenerateOrExtendContactShareId(string currentUserId)
+        {
+            User thisUser = FindUser(currentUserId, null);
+            if (thisUser.ContactShareId == null || thisUser.ContactShareId.IsExpired())
+            {
+                thisUser.ContactShareId = new ExpirationToken()
+                {
+                    ExpirationTime = DateTime.UtcNow.AddDays(2),
+                    Data = RandomKeyFactory.GetUniqueKeyOriginal_BIASED(32)
+                };
+            }
+            else
+            {
+                thisUser.ContactShareId.ExpirationTime = DateTime.UtcNow.AddDays(2);
+            }
+            _db.SaveChanges();
+            return thisUser.ContactShareId.Data;
+        }
+
+        public void AddUserFromContactShareId(string currentUserId, string contactShareId)
+        {
+            User thisUser = FindUser(currentUserId, null);
+            var query = from user in _db.Set<User>()
+                        where user.ContactShareId != null && user.ContactShareId.Data == contactShareId
+                        select user;
+            User targetUser = query.FirstOrDefault();
+            if (targetUser == null)
+            {
+                throw new Exception(StatusMessages.UserNotFound);
+            }
+            else if (targetUser.ContactShareId.IsExpired())
+            {
+                throw new Exception(StatusMessages.ContactLinkExpired);
+            }
+            else if (targetUser == thisUser)
+            {
+                throw new Exception(StatusMessages.CannotAddYourselfAsContact);
+            }
+            else
+            {
+                AddOrUpdateContact(thisUser.Id, targetUser, UserContactType.Default, false);
+                AddOrUpdateContact(targetUser.Id, thisUser, UserContactType.Default, false);
+            }
         }
 
         /// <summary>

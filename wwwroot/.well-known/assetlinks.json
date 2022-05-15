@@ -1,0 +1,5 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target" : { "namespace": "android_app", "package_name": "net.shopping_now",
+               "sha256_cert_fingerprints": ["9B:49:2E:02:B4:E6:B2:C7:4E:68:C8:91:C1:D6:BD:A0:AF:D1:8D:83:74:2B:83:55:D4:C2:6A:49:15:20:7C:45"] }
+}]

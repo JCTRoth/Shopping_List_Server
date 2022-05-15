@@ -42,6 +42,11 @@ namespace ShoppingListServer.Entities
 
         public bool IsVerified { get; set; } = false;
 
+        /// <summary>
+        /// Id that can be used to share this user with other users so that both are adding each other as contacs.
+        /// </summary>
+        public virtual ExpirationToken ContactShareId { get; set; }
+
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<EMailVerificationToken> EMailVerificationTokens { get; set; } = new List<EMailVerificationToken>();
 

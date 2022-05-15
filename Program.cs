@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using System.IO;
 
 namespace ShoppingListServer
 {
@@ -8,7 +9,10 @@ namespace ShoppingListServer
 
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            // UseContentRoot: Use the current directory as root so that the wwwroot folder is a child. (not sure if it's necessary to call this)
+            CreateHostBuilder(args)
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .Build().Run();
         }
 
         // Uses the certificates specified in

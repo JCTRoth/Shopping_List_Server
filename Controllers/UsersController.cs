@@ -291,7 +291,7 @@ namespace ShoppingListServer.Controllers
         public IActionResult AddContact([FromBody] object jsonBody)
         {
             UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
-            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type);
+            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, false);
             return Ok();
         }
 
@@ -299,7 +299,7 @@ namespace ShoppingListServer.Controllers
         public IActionResult UpdateContact([FromBody] object jsonBody)
         {
             UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
-            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type);
+            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, true);
             return Ok();
         }
 
@@ -327,5 +327,43 @@ namespace ShoppingListServer.Controllers
             else
                 return BadRequest("Something went wrong.");
         }
+
+        /// <summary>
+        /// Generates a token of the new user share id. The user share id can be used by someone
+        /// else to add themselfs to the users contact list and vice versa,
+        /// see <see cref="AddUserFromContactShareId(string, string)"/>
+        /// Writes it in <see cref="User.ContactShareId"/>
+        /// The token expires after two days.
+        /// </summary>
+        /// <param name="currentUserId">Id of the currently logged in user</param>
+        /// <returns>The share id.</returns>
+        [HttpPost("generate_share_id")]
+        public IActionResult GenerateOrExtendContactShareId()
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            string contactShareId = _userService.GenerateOrExtendContactShareId(currentUserId);
+            return Ok(contactShareId);
+        }
+
+        /// <summary>
+        /// Add the currently logged in user to contacts of the user that created the given contactSharedId.
+        /// (with <see cref="GenerateOrExtendContactShareId(string)"/>)
+        /// 
+        /// Possible status messages:
+        /// <see cref="StatusMessages.CannotAddYourselfAsContact"/> if the link was created by the logged in user.
+        /// <see cref="StatusMessages.ContactLinkExpired"/> if the link has been expired (older than 2 days).
+        /// <see cref="StatusMessages.UserNotFound"/> if the user that created the link doesn't exist.
+        /// </summary>
+        /// <param name="currentUserId"></param>
+        /// <param name="contactShareId"><see cref="User.ContactShareId"/> created by another user.</param>
+        [HttpPost("contact_share_id")]
+        public IActionResult AddContactByShareId([FromBody] object jsonBody)
+        {
+            Tuple<string> contactShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
+            return Ok();
+        }
+
     }
 }

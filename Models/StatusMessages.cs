@@ -24,5 +24,8 @@ namespace ShoppingListServer.Models
         public static string EMailVerificationLinkExpired = "Link expired.";
         public static string UserIsAlreadyVerified = "User is already verified.";
         public static string UserHasNoEMailAddress = "User has no E-Mail address.";
+        public static string ContactAlreadyAdded = "The user is already in your contact list.";
+        public static string CannotAddYourselfAsContact = "Can not add yourself as contact.";
+        public static string ContactLinkExpired = "Contact Link expired.";
     }
 }

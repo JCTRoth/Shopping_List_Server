@@ -31,4 +31,9 @@
     <None Remove="Microsoft.AspNetCore.SignalR.Core" />
     <None Remove="Microsoft.AspNetCore.All" />
   </ItemGroup>
+  <ItemGroup> 
+    <Content Include="wwwroot\.well-known\**"> 
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> 
+    </Content> 
+  </ItemGroup>
 </Project>
