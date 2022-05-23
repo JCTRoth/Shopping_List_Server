@@ -21,7 +21,6 @@ namespace ShoppingListServer.Controllers
     {
         protected IUserService _userService;
         protected IEMailVerificationService _emailVerificationService;
-        protected IResetPasswordService _resetPasswordService;
 
         public UsersController(
             IUserService userService,
@@ -30,7 +29,6 @@ namespace ShoppingListServer.Controllers
         {
             _userService = userService;
             _emailVerificationService = emailVerificationService;
-            _resetPasswordService = resetPasswordService;
         }
 
         // Is used to check if the server is reachable.
@@ -81,54 +79,6 @@ namespace ShoppingListServer.Controllers
 
         }
 
-        // This address is supposed to be called from a web browser.
-        // Verify a user given a code that was sent to their email address when they registered.
-        // Returns a simple html page with a message of what happened.
-        [AllowAnonymous]
-        [HttpGet("verify/{urlCode}")]
-        public ContentResult Verify(string urlCode)
-        {
-            try
-            {
-                User user = _emailVerificationService.VerifyEMailUrlCode(urlCode);
-                // Return simple html page.
-                if (user != null)
-                {
-                    return base.Content("<div>Successfully registered!</div>", "text/html");
-                }
-                else
-                {
-                    return base.Content("<div>Oops, something went wrong :(</div>", "text/html");
-                }
-            }
-            catch (Exception e)
-            {
-                return base.Content("<div>Something went wrong: " + e.Message + "</div>", "text/html");
-            }
-        }
-
-        /// <summary>
-        /// Requests the server to resend the verification mail that contains
-        /// a link to verify your entered E-Mail address.
-        /// 
-        /// Possible StatusMessages:
-        /// <see cref="StatusMessages.UserIsAlreadyVerified"/>
-        /// <see cref="StatusMessages.UserHasNoEMailAddress"/>
-        /// </summary>
-        [HttpPost("resendVerificationEMail")]
-        public async Task<IActionResult> ResendVerificationEMail()
-        {
-            User user = _userService.GetById(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            if (user != null)
-            {
-                if (await _emailVerificationService.SendEMailVerificationCodeAndAddToken(user))
-                {
-                    return Ok();
-                }
-            }
-            return BadRequest(new { message = "User does not exist." });
-        }
-
         /*
         [Authorize(Roles = Role.User)]
         [HttpGet("all")]
@@ -177,83 +127,6 @@ namespace ShoppingListServer.Controllers
                 return Ok();
             else
                 return BadRequest("Something went wrong :(");
-        }
-
-        /// <summary>
-        /// First step of resetting the password is to request an email that contains the
-        /// reset password code.
-        /// </summary>
-        /// <param name="jsonBody"></param>
-        /// <returns></returns>
-        [HttpPost("resetpassword_requestcode")]
-        [AllowAnonymous]
-        public async Task<IActionResult> RequestResetPasswordCode([FromBody] object jsonBody)
-        {
-            Tuple<string> passwordUpdate = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
-            bool success = await _resetPasswordService.SendResetPasswordEMailAndAddToken(passwordUpdate.Item1);
-            if (success)
-                return Ok();
-            else
-                return BadRequest("Something went wrong.");
-        }
-
-        /// <summary>
-        /// Second step of resetting the password is to check if the entered
-        /// reset password code is valid. It should be the same as the one
-        /// that was sent by mail with
-        /// <see cref="RequestResetPasswordCode(object)"/>
-        /// </summary>
-        /// <param name="jsonBody"></param>
-        /// <returns></returns>
-        [HttpPost("resetpassword_codevalid")]
-        [AllowAnonymous]
-        public IActionResult IsResetPasswordCodeValid([FromBody] object jsonBody)
-        {
-            Tuple<string, string> tuple = JsonConvert.DeserializeObject<Tuple<string, string>>(jsonBody.ToString());
-            string email = tuple.Item1;
-            string code = tuple.Item2;
-            bool success = _resetPasswordService.CheckIfCodeExistsWithException(email, code);
-            if (success)
-                return Ok();
-            else
-                return BadRequest("Something went wrong.");
-        }
-
-        /// <summary>
-        /// Thirds step of resetting the password is to actually reset it using
-        /// the code that was sent via email, see
-        /// <see cref="RequestResetPasswordCode(object)"/>
-        /// </summary>
-        /// <param name="jsonBody"></param>
-        /// <returns></returns>
-        [HttpPost("resetpassword")]
-        [AllowAnonymous]
-        public IActionResult ResetPassword([FromBody] object jsonBody)
-        {
-            Tuple<string, string, string> tuple = JsonConvert.DeserializeObject<Tuple<string, string, string>>(jsonBody.ToString());
-            string email = tuple.Item1;
-            string code = tuple.Item2;
-            string newPassword = tuple.Item3;
-            bool success = _resetPasswordService.SetPassword(email, code, newPassword);
-            if (success)
-                return Ok();
-            else
-                return BadRequest("Something went wrong.");
-        }
-
-        /// <summary>
-        /// This method is called when a user clicks on the link of the "Reset Password" email
-        /// but does not have ShoppingNow installed. In that case, show a message, that the
-        /// app is not installed and provide a link to the app stores. (TODO)
-        /// </summary>
-        /// <param name="code"></param>
-        /// <returns></returns>
-        [HttpPost("resetpassword2")]
-        [AllowAnonymous]
-        public IActionResult ResetPasswordLink(string code)
-        {
-            string redirectToMainPage = HtmlPageFactory.CreateRedirectToShoppingNowPage();
-            return base.Content(redirectToMainPage, "text/html");
         }
 
         [HttpGet("{id}")]
@@ -361,8 +234,8 @@ namespace ShoppingListServer.Controllers
         {
             Tuple<string> contactShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
-            return Ok();
+            User targetUser = _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
+            return Ok(targetUser.WithoutPassword());
         }
 
     }

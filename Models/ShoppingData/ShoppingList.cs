@@ -77,5 +77,11 @@ namespace ShoppingListServer.Models
 
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<ShoppingListPermission> ShoppingListPermissions { get; set; }
+
+        /// <summary>
+        /// Id that can be used to share this list with other users.
+        /// Not to be confused with the <see cref="SyncId"/>
+        /// </summary>
+        public virtual ExpirationToken ShareId { get; set; }
     }
 }

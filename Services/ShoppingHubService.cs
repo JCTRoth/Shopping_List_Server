@@ -34,7 +34,7 @@ namespace ShoppingListServer.Services
         */
         public async Task SendListAdded(User user, ShoppingList list, ShoppingListPermissionType permission)
         {
-            string userJson = JsonConvert.SerializeObject(user.WithoutPassword());
+            string userJson = user == null ? "" : JsonConvert.SerializeObject(user.WithoutPassword());
             string listJson = JsonConvert.SerializeObject(list);
             List<string> users = GetUsersWithPermissionsFiltered(user, list.SyncId, permission);
             await _hubContext.Clients.Users(users).SendAsync("ListAdded", userJson, listJson);
@@ -79,7 +79,7 @@ namespace ShoppingListServer.Services
         {
             try
             {
-                string userJson = JsonConvert.SerializeObject(thisUser.WithoutPassword());
+                string userJson = thisUser == null ? "" : JsonConvert.SerializeObject(thisUser.WithoutPassword());
                 await _hubContext.Clients.Users(targetUserId).SendAsync("ListPermissionChanged", userJson, listSyncId, permission);
                 return true;
             }
@@ -157,7 +157,8 @@ namespace ShoppingListServer.Services
         private List<string> GetUsersWithPermissionsFiltered(User filteredUser, string listSyncId, ShoppingListPermissionType permission)
         {
             List<string> users = _shoppingService.Value.GetUsersWithPermissions(listSyncId, permission);
-            users.Remove(filteredUser.Id);
+            if (filteredUser != null)
+                users.Remove(filteredUser.Id);
             return users;
         }
     }

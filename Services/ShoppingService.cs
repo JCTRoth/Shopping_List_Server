@@ -8,6 +8,7 @@ using ShoppingListServer.Entities;
 using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.LiveUpdates;
+using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
@@ -365,7 +366,7 @@ namespace ShoppingListServer.Services
         // \param shoppingListId - id of the list whose permission is changed
         // \param permission - target permission type
         public async Task<bool> AddOrUpdateListPermission(
-            string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission = true)
+            string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission = true, bool allowUpdate = true)
         {
             ShoppingList targetList = GetShoppingListEntity(shoppingListId);
             if (targetList == null)
@@ -381,13 +382,15 @@ namespace ShoppingListServer.Services
             var first = query.FirstOrDefault();
             if (first != null)
             {
-                if (checkPermission)
+                if (!allowUpdate)
+                    throw new Exception(StatusMessages.ListAlreadyAdded);
+                if (!string.IsNullOrEmpty(thisUserId) && checkPermission)
                     CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.ModifyPermission);
                 first.perm.PermissionType = permission;
             }
             else
             {
-                if (checkPermission)
+                if (!string.IsNullOrEmpty(thisUserId) && checkPermission)
                     CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.AddPermission);
                 ShoppingList list = GetShoppingListEntity(shoppingListId);
                 if (list == null)
@@ -454,7 +457,7 @@ namespace ShoppingListServer.Services
                     if (!containsAdmin)
                     {
                         string newAdmin = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
-                        await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false);
+                        await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false, true);
 
                         // List owners don't change. Even if the owner has no access permissions to his own
                         // list, they remain the owner of the list. This is done to avoid moving lists
@@ -470,6 +473,46 @@ namespace ShoppingListServer.Services
                 success = true;
             }
             return success;
+        }
+
+        public string GenerateOrExtendListShareId(string listSyncId, string currentUserId)
+        {
+            ShoppingList listEntity = GetShoppingListEntity(listSyncId);
+            if (listEntity == null)
+                throw new ShoppingListNotFoundException(listSyncId);
+            CheckPermissionWithException(listEntity, currentUserId, ShoppingListPermissionType.AddPermission);
+
+            if (listEntity.ShareId == null || listEntity.ShareId.IsExpired())
+            {
+                listEntity.ShareId = new ExpirationToken()
+                {
+                    ExpirationTime = DateTime.MaxValue,
+                    Data = RandomKeyFactory.GetUniqueKeyOriginal_BIASED(32)
+                };
+            }
+            _db.SaveChanges();
+            return listEntity.ShareId.Data;
+        }
+
+        public async Task<ShoppingList> AddListFromListShareId(string currentUserId, string listShareId)
+        {
+            var query = from list in _db.Set<ShoppingList>()
+                        where list.ShareId != null && list.ShareId.Data == listShareId
+                        select list;
+            ShoppingList targetList = query.FirstOrDefault();
+            if (targetList == null)
+            {
+                throw new Exception(StatusMessages.ShoppingListNotFound);
+            }
+            else if (targetList.ShareId.IsExpired())
+            {
+                throw new Exception(StatusMessages.ListShareLinkExpired);
+            }
+            else
+            {
+                await AddOrUpdateListPermission(null, currentUserId, targetList.SyncId, ShoppingListPermissionType.WriteAndAddPermission, false, false);
+            }
+            return targetList;
         }
 
         // Returns the entity of the given shopping list. This is an object that has only the fields set that are in the database.

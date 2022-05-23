@@ -359,7 +359,7 @@ namespace ShoppingListServer.Services
             return thisUser.ContactShareId.Data;
         }
 
-        public void AddUserFromContactShareId(string currentUserId, string contactShareId)
+        public User AddUserFromContactShareId(string currentUserId, string contactShareId)
         {
             User thisUser = FindUser(currentUserId, null);
             var query = from user in _db.Set<User>()
@@ -380,9 +380,12 @@ namespace ShoppingListServer.Services
             }
             else
             {
+                // Don't throw an exception if the other one already added you as contact (pass "true" here).
+                AddOrUpdateContact(targetUser.Id, thisUser, UserContactType.Default, true);
+                // Only throw the exception if you already added the user (pass "false" here).
                 AddOrUpdateContact(thisUser.Id, targetUser, UserContactType.Default, false);
-                AddOrUpdateContact(targetUser.Id, thisUser, UserContactType.Default, false);
             }
+            return targetUser;
         }
 
         /// <summary>

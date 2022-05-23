@@ -51,12 +51,37 @@ namespace ShoppingListServer.Services.Interfaces
         // Exception: If this user has no read access to the list.
         ShoppingListPermissionType GetUserListPermission(string shoppingListId, string thisUserId, string userId);
 
-        Task<bool> AddOrUpdateListPermission(string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission);
+        Task<bool> AddOrUpdateListPermission(string thisUserId, string targetUserId, string shoppingListId, ShoppingListPermissionType permission, bool checkPermission, bool allowUpdate);
         // Remove the permission of a user from a shopping list. Doesn't work if the user is the owner.
 
         Task<bool> RemoveListPermission(string thisUserId, string targetUserId, string shoppingListId);
 
         List<string> GetUsersWithPermissions(string listSyncId, ShoppingListPermissionType permission);
+
+        /// <summary>
+        /// Generates a token of this lists share id. The share id can be used to share
+        /// this list with other users, by them calling <see cref="AddListFromListShareId(string, string)"/>
+        /// The share id is stored in <see cref="ShoppingList.ShareId"/>
+        /// The token does not expire.
+        /// </summary>
+        /// <param name="listSyncId">Id of the list that's to be shared</param>
+        /// <param name="currentUserId">Id of the currently logged in user</param>
+        /// <returns>The share id.</returns>
+        public string GenerateOrExtendListShareId(string listSyncId, string currentUserId);
+
+        /// <summary>
+        /// Adds a <see cref="ShoppingListPermissionType.WriteAndModifyPermission"/> permission for the
+        /// current user to the list with the given listShareId.
+        /// 
+        /// The list share id has to be generated with <see cref="GenerateOrExtendListShareId(string)"/>.
+        /// 
+        /// Possible status messages:
+        /// <see cref="StatusMessages.ShoppingListNotFound">If there is no shopping list with the given sync id.</see>
+        /// <see cref="StatusMessages.ListShareLinkExpired">If the link has been expired (older than 2 days).</see>
+        /// <see cref="StatusMessages.ListAlreadyAdded">If the user that created the link doesn't exist.</see>
+        /// </summary>
+        /// <returns>The added list.</returns>
+        public Task<ShoppingList> AddListFromListShareId(string currentUserId, string listShareId);
 
     }
 }

@@ -184,8 +184,13 @@ namespace ShoppingListServer
             app.UseAuthentication();
             app.UseAuthorization();
 
-            // Server accessibility on browser routs
-            app.UseStaticFiles();
+            // Server accessibility on browser routes
+            // Define new StaticFileOptions to enable access of files with no ending (apple-app-site-association)
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                ServeUnknownFileTypes = true,
+                DefaultContentType = "text/plain"
+            });
 
             var appSettingsSection = Configuration.GetSection("AppSettings");
             var appSettings = appSettingsSection.Get<AppSettings>();

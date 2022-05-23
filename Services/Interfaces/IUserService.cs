@@ -66,7 +66,8 @@ namespace ShoppingListServer.Services.Interfaces
         /// </summary>
         /// <param name="currentUserId"></param>
         /// <param name="contactShareId"><see cref="User.ContactShareId"/> created by another user.</param>
-        public void AddUserFromContactShareId(string currentUserId, string contactShareId);
+        /// <returns>Target user</returns>
+        public User AddUserFromContactShareId(string currentUserId, string contactShareId);
 
         List<UserContact> GetContacts(string userId);
     }

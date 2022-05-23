@@ -1,32 +1,11 @@
 {
   "applinks": {
-      "details": [
-           {
-             "appIDs": [ "GRUP2R22W3.GenericListApp.iOS.app" ],
-             "components": [
-               {
-                  "#": "no_universal_links",
-                  "exclude": true,
-                  "comment": "Matches any URL whose fragment equals no_universal_links and instructs the system not to open it as a universal link"
-               },
-               {
-                  "/": "/users/*",
-                  "comment": "Matches any URL whose path starts with /users/"
-               },
-               {
-                  "/": "/shopping/*",
-                  "comment": "Matches any URL whose path starts with /shopping/"
-               },
-               {
-                  "/": "/help/*",
-                  "?": { "articleNumber": "????" },
-                  "comment": "Matches any URL whose path starts with /help/ and which has a query item with name 'articleNumber' and a value of exactly 4 characters"
-               }
-             ]
-           }
-       ]
-   },
-   "webcredentials": {
-      "apps": [ "GRUP2R22W3.GenericListApp.iOS.app" ]
-   }
+    "apps": [],
+    "details": [
+      {
+        "appID": "GRUP2R22W3.GenericListApp.iOS.app",
+        "paths": [ "/users/*", "/shoppping/*" ]
+      }
+    ]
+  }
 }

@@ -242,7 +242,7 @@ namespace ShoppingListServer.Controllers
                 ShoppingListPermissionType permission =
                     (ShoppingListPermissionType)Enum.Parse(typeof(ShoppingListPermissionType), tupel.Item3, true);
 
-                bool success = await _shoppingService.AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, permission, true);
+                bool success = await _shoppingService.AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, permission, true, true);
                 if (success)
                     return Ok();
             }
@@ -260,6 +260,44 @@ namespace ShoppingListServer.Controllers
                 return Ok();
             else
                 return BadRequest(new { message = "Deleting of permission not possible." });
+        }
+
+        /// <summary>
+        /// Generates a token of this lists share id. The share id can be used to share
+        /// this list with other users, by them calling <see cref="AddListFromListShareId(string, string)"/>
+        /// The share id is stored in <see cref="ShoppingList.ShareId"/>
+        /// The token does not expire.
+        /// </summary>
+        /// <param name="listSyncId">Id of the list that's to be shared</param>
+        /// <param name="currentUserId">Id of the currently logged in user</param>
+        /// <returns>The share id.</returns>
+        [HttpPost("generate_share_id/{listId}")]
+        public IActionResult GenerateOrExtendListShareId(string listId)
+        {
+            var thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            string listShareId = _shoppingService.GenerateOrExtendListShareId(listId, thisUserId);
+            return Ok(listShareId);
+        }
+
+        /// <summary>
+        /// Adds a <see cref="ShoppingListPermissionType.WriteAndModifyPermission"/> permission for the
+        /// current user to the list with the given listShareId.
+        /// 
+        /// The list share id has to be generated with <see cref="GenerateOrExtendListShareId(string)"/>.
+        /// 
+        /// Possible status messages:
+        /// <see cref="StatusMessages.ShoppingListNotFound">If there is no shopping list with the given sync id.</see>
+        /// <see cref="StatusMessages.ListShareLinkExpired">If the link has been expired (older than 2 days).</see>
+        /// <see cref="StatusMessages.ListAlreadyAdded">If the user that created the link doesn't exist.</see>
+        /// </summary>
+        /// <returns>The added lists share id.</returns>
+        [HttpPost("list_share_id")]
+        public async Task<IActionResult> AddListByShareId([FromBody] object jsonBody)
+        {
+            Tuple<string> listShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            ShoppingList listEntity = await _shoppingService.AddListFromListShareId(currentUserId, listShareId.Item1);
+            return Ok(listEntity.SyncId);
         }
 
     }

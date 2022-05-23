@@ -63,7 +63,7 @@ namespace ShoppingListServer.Services
             message.Body = "Thank you for registering for ShoppingNow.\n" +
                 "If you haven't tried to register, you can ignore this mail.\n\n" +
                 "Please click the following link to complete registration:\n" +
-                "https://shopping-now.net:5678/users/verify/" + urlCode;
+                "https://shopping-now.net/verify/" + urlCode;
             message.BodyEncoding = System.Text.Encoding.UTF8;
             message.Subject = "ShoppingNow Registration";
             message.SubjectEncoding = System.Text.Encoding.UTF8;
