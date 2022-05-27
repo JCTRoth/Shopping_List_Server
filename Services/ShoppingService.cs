@@ -403,14 +403,11 @@ namespace ShoppingListServer.Services
                 });
             }
             _db.SaveChanges();
-            if (first != null)
-            {
-                await _hubService.SendListPermissionChanged(_userService.GetById(thisUserId), shoppingListId, targetUserId, permission);
-            }
-            else
+            if (first == null)
             {
                 targetList = LoadShoppingList(shoppingListId);
                 await _hubService.SendListAdded(_userService.GetById(thisUserId), targetList, ShoppingListPermissionType.Read);
+                await _hubService.SendListPermissionChanged(_userService.GetById(thisUserId), _userService.GetById(targetUserId), shoppingListId, permission);
             }
             return true;
         }
@@ -470,6 +467,7 @@ namespace ShoppingListServer.Services
 
                 // Remove the list for the user whose permission was removed.
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
+                await _hubService.SendListPermissionRemoved(_userService.GetById(thisUserId), _userService.GetById(targetUserId), shoppingListId);
                 success = true;
             }
             return success;

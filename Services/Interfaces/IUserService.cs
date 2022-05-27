@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Models;
 
@@ -33,7 +34,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// Adds or updates targetUser as contact to the contacts list of current user.
         /// </summary>
         /// <param name="allowUpdate">Allows update of contact type if the contact already exists. If false, throws an exception in that case.</param>
-        void AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate);
+        Task AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate);
 
         bool RemoveContact(string currentUserId, User targetUser);
         /// <summary>
@@ -53,7 +54,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// </summary>
         /// <param name="currentUserId">Id of the currently logged in user</param>
         /// <returns>The share id.</returns>
-        public string GenerateOrExtendContactShareId(string currentUserId);
+        string GenerateOrExtendContactShareId(string currentUserId);
 
         /// <summary>
         /// Add the currently logged in user to the contacts of the user that created the given contactSharedId.
@@ -67,7 +68,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// <param name="currentUserId"></param>
         /// <param name="contactShareId"><see cref="User.ContactShareId"/> created by another user.</param>
         /// <returns>Target user</returns>
-        public User AddUserFromContactShareId(string currentUserId, string contactShareId);
+        Task<User> AddUserFromContactShareId(string currentUserId, string contactShareId);
 
         List<UserContact> GetContacts(string userId);
     }

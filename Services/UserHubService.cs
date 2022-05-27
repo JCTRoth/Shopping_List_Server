@@ -28,5 +28,15 @@ namespace ShoppingListServer.Services
         {
             await _hubContext.Clients.User(user.Id).SendAsync("UserEMailVerified");
         }
+
+        /// <summary>
+        /// Send a message that a contact was added for the given user.
+        /// </summary>
+        /// <returns></returns>
+        public async Task SendContactAdded(string currentUserId, User contactUser)
+        {
+            string contactJson = contactUser == null ? "" : JsonConvert.SerializeObject(contactUser.WithoutPassword());
+            await _hubContext.Clients.User(currentUserId).SendAsync("ContactAdded", contactJson);
+        }
     }
 }

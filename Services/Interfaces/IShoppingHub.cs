@@ -20,12 +20,23 @@ namespace ShoppingListServer.LiveUpdates
 
         Task SendListRemoved(User user, string listSyncId, string userId);
 
-        // Inform the given user that its permission for the given list changed.
+        /// <summary>
+        /// Inform the given user that its permission for the given list changed.
+        /// </summary>
         Task<bool> SendListPermissionChanged(
             User thisUser,
+            User targetUser,
             string listSyncId,
-            string targetUserId,
             ShoppingListPermissionType permission);
+
+        /// <summary>
+        /// Inform everyone that has access to the list with listSyncId, that the user with targetUserId
+        /// has no longer access permission to the list.
+        /// </summary>
+        Task<bool> SendListPermissionRemoved(
+            User thisUser,
+            User targetUser,
+            string listSyncId);
 
         Task<bool> SendItemNameChanged(
             User user,

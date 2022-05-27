@@ -17,8 +17,6 @@ namespace ShoppingListServer.Services
 
             // Create APIs storage folder
             CreateStorageFolders();
-            Console.WriteLine("FilesystemService: Created Data Storage Folder: {0}", DataStoragePath);
-            Console.WriteLine("FilesystemService: Created User Storage Folder: {0}", UserStoragePath);
         }
 
         public string GetUserFolderPath(string user_id)

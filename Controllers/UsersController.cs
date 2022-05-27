@@ -230,11 +230,11 @@ namespace ShoppingListServer.Controllers
         /// <param name="currentUserId"></param>
         /// <param name="contactShareId"><see cref="User.ContactShareId"/> created by another user.</param>
         [HttpPost("contact_share_id")]
-        public IActionResult AddContactByShareId([FromBody] object jsonBody)
+        public async Task<IActionResult> AddContactByShareId([FromBody] object jsonBody)
         {
             Tuple<string> contactShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            User targetUser = _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
+            User targetUser = await _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
             return Ok(targetUser.WithoutPassword());
         }
 

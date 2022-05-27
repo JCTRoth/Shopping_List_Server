@@ -73,17 +73,38 @@ namespace ShoppingListServer.Services
         // Inform the given user that its permission for the given list changed.
         public async Task<bool> SendListPermissionChanged(
             User thisUser,
+            User targetUser,
             string listSyncId,
-            string targetUserId,
             ShoppingListPermissionType permission)
         {
             try
             {
-                string userJson = thisUser == null ? "" : JsonConvert.SerializeObject(thisUser.WithoutPassword());
-                await _hubContext.Clients.Users(targetUserId).SendAsync("ListPermissionChanged", userJson, listSyncId, permission);
+                string userJson = targetUser == null ? "" : JsonConvert.SerializeObject(targetUser.WithoutPassword());
+                List<string> users = GetUsersWithPermissionsFiltered(thisUser, listSyncId, ShoppingListPermissionType.Read);
+                // put targetUserId into target
+                await _hubContext.Clients.Users(users).SendAsync("ListPermissionChanged", userJson, listSyncId, permission);
                 return true;
             }
             catch(Exception ex)
+            {
+                Console.Error.WriteLine("SendListPermissionChanged {0}", ex);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendListPermissionRemoved(
+            User thisUser,
+            User targetUser,
+            string listSyncId)
+        {
+            try
+            {
+                string userJson = targetUser == null ? "" : JsonConvert.SerializeObject(targetUser.WithoutPassword());
+                List<string> users = GetUsersWithPermissionsFiltered(thisUser, listSyncId, ShoppingListPermissionType.Read);
+                await _hubContext.Clients.Users(users).SendAsync("ListPermissionRemoved", userJson, listSyncId);
+                return true;
+            }
+            catch (Exception ex)
             {
                 Console.Error.WriteLine("SendListPermissionChanged {0}", ex);
                 return false;
