@@ -186,6 +186,7 @@ namespace ShoppingListServer.Services
             {
                 // Send to target user
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
+                await _hubService.SendListPermissionRemoved(_userService.GetById(thisUserId), _userService.GetById(targetUserId), shoppingListId);
             }
 
             return success;
@@ -198,9 +199,12 @@ namespace ShoppingListServer.Services
                 throw new ShoppingListNotFoundException(shoppingListId);
 
             CheckPermissionWithException(listEntity, userId, ShoppingListPermissionType.Delete);
-            // Send to all with permission Read
-            await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
             bool success = DeleteListWithoutChecks(shoppingListId);
+            if (success)
+            {
+                // Send to all with permission Read
+                await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
+            }
 
             return success;
         }
@@ -436,7 +440,7 @@ namespace ShoppingListServer.Services
             bool success = false;
             if (first != null)
             {
-                first.list.ShoppingListPermissions.Remove(first.perm);
+                success = first.list.ShoppingListPermissions.Remove(first.perm);
                 _db.SaveChanges();
 
                 if (first.list.ShoppingListPermissions.Count == 0)
@@ -454,7 +458,7 @@ namespace ShoppingListServer.Services
                     if (!containsAdmin)
                     {
                         string newAdmin = first.list.ShoppingListPermissions.FirstOrDefault().UserId;
-                        await AddOrUpdateListPermission(thisUserId, targetUserId, shoppingListId, ShoppingListPermissionType.All, false, true);
+                        await AddOrUpdateListPermission(thisUserId, newAdmin, shoppingListId, ShoppingListPermissionType.All, false, true);
 
                         // List owners don't change. Even if the owner has no access permissions to his own
                         // list, they remain the owner of the list. This is done to avoid moving lists

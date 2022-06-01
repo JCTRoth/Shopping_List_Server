@@ -16,9 +16,25 @@ namespace ShoppingListServer.LiveUpdates
 
         Task SendListPropertyChanged(User user, string listSyncId, string propertyName, string propertyValue, ShoppingListPermissionType permission);
 
+        /// <summary>
+        /// Inform everyone that has the given permission to the given list that the list has been removed
+        /// for them. (their permission has been removed). This should result in them removing their
+        /// list locally.
+        /// </summary>
+        /// <param name="user">The user that removed the list. They are not informed.</param>
+        /// <param name="listSyncId">List that was removed.</param>
+        /// <param name="permission">Permission of users that are to be informed.</param>
+        /// <returns></returns>
         Task SendListRemoved(User user, string listSyncId, ShoppingListPermissionType permission);
 
-        Task SendListRemoved(User user, string listSyncId, string userId);
+        /// <summary>
+        /// Inform the user with <see cref="targetUserId"/> that the list was removed for them.
+        /// </summary>
+        /// <param name="user">The user that removed the list for them.</param>
+        /// <param name="listSyncId">Id of the removed list</param>
+        /// <param name="targetUserId">The user that was removed from the list</param>
+        /// <returns></returns>
+        Task SendListRemoved(User user, string listSyncId, string targetUserId);
 
         /// <summary>
         /// Inform the given user that its permission for the given list changed.
