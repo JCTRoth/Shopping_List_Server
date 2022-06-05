@@ -54,6 +54,15 @@ namespace ShoppingListServer.Services
             return LoadShoppingList(shoppingListId);
         }
 
+        public ListLastChangeTimeDTO GetListLastChangeTime(string userId, string shoppingListId)
+        {
+            ShoppingList list = GetShoppingListEntity(shoppingListId);
+            if (list == null)
+                throw new ShoppingListNotFoundException(shoppingListId);
+            CheckPermissionWithException(list, userId, ShoppingListPermissionType.Read);
+            return new ListLastChangeTimeDTO(shoppingListId, list.LastChangeServerTime);
+        }
+
         public List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission)
         {
             var query = from list in _db.Set<ShoppingList>()
@@ -100,6 +109,15 @@ namespace ShoppingListServer.Services
             //return _db.ShoppingLists.Where(list => CheckPermission(list, userId, permission)).ToList();
         }
 
+        public List<ListLastChangeTimeDTO> GetListsLastChangeTimes(string userId, ShoppingListPermissionType permission)
+        {
+            var query = from list in _db.Set<ShoppingList>()
+                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                        where perm.UserId.Equals(userId) && perm.PermissionType.HasFlag(permission)
+                        select new ListLastChangeTimeDTO(list.SyncId, list.LastChangeServerTime);
+            return query.ToList();
+        }
+
         // Adds the given list to this server.
         // Sets list.Id and list.ShoppingListPermissions
         public async Task<bool> AddList(ShoppingList list, string userID)
@@ -112,6 +130,7 @@ namespace ShoppingListServer.Services
             else
             {
                 list.SyncId = Guid.NewGuid().ToString();
+                list.UpdateLastChangeServerTime();
                 list.Owner = _userService.GetById(userID);
                 list.ShoppingListPermissions = new List<ShoppingListPermission>();
                 list.ShoppingListPermissions.Add(new ShoppingListPermission()
@@ -135,7 +154,7 @@ namespace ShoppingListServer.Services
             }
         }
 
-        // Overwrites the given shopping list with the stored one that has the same Id.
+        // Overwrites the stored shopping list with the given one that has the same Id.
         // Throws ShoppingListNotFoundException if there is no such list stored. Use AddList in that case first.
         public async Task<bool> UpdateList(ShoppingList list, string userId)
         {
@@ -396,16 +415,14 @@ namespace ShoppingListServer.Services
             {
                 if (!string.IsNullOrEmpty(thisUserId) && checkPermission)
                     CheckPermissionWithException(targetList, thisUserId, ShoppingListPermissionType.AddPermission);
-                ShoppingList list = GetShoppingListEntity(shoppingListId);
-                if (list == null)
-                    throw new ShoppingListNotFoundException(shoppingListId);
-                list.ShoppingListPermissions.Add(new ShoppingListPermission
+                targetList.ShoppingListPermissions.Add(new ShoppingListPermission
                 {
                     ShoppingListId = shoppingListId,
                     UserId = targetUserId,
                     PermissionType = permission
                 });
             }
+            targetList.UpdateLastChangeServerTime();
             _db.SaveChanges();
             if (first == null)
             {
@@ -441,6 +458,7 @@ namespace ShoppingListServer.Services
             if (first != null)
             {
                 success = first.list.ShoppingListPermissions.Remove(first.perm);
+                targetList.UpdateLastChangeServerTime();
                 _db.SaveChanges();
 
                 if (first.list.ShoppingListPermissions.Count == 0)
@@ -587,8 +605,12 @@ namespace ShoppingListServer.Services
             return success;
         }
 
-        // Stores the updated json file.
-        // \param list - the updated list
+        /// <summary>
+        /// Stores the given list as json file. The list must contain all the item information.
+        /// It is not enough to pass a database list entity here.
+        /// </summary>
+        /// <param name="list">the updated list</param>
+        /// <returns></returns>
         private bool UpdateShoppingList(ShoppingList list)
         {
             string ownerId = GetOwnerId(list.SyncId);
@@ -596,6 +618,12 @@ namespace ShoppingListServer.Services
             if (ownerId != null)
             {
                 success = _storageService.Store_ShoppingList(ownerId, list);
+                if (success)
+                {
+                    ShoppingList listEntity = GetShoppingListEntity(list.SyncId);
+                    listEntity.UpdateLastChangeServerTime();
+                    _db.SaveChanges();
+                }
             }
             return success;
         }

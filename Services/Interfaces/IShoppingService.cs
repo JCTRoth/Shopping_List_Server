@@ -20,9 +20,21 @@ namespace ShoppingListServer.Services.Interfaces
         /// <returns>The shoppinglist with the given id</returns>
         /// <exception cref="NoShoppingListPermissionException">If the user with the given id has no read permission for the list.</exception>
         ShoppingList GetList(string userId, string shoppingListId);
+        ListLastChangeTimeDTO GetListLastChangeTime(string userId, string shoppingListId);
         List<ShoppingListWithPermissionDTO> GetLists(string userId);
         // Return all lists that the user has the given permission for.
         List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission);
+
+        /// <summary>
+        /// Returns all the lists SyncIds and LastChangeServerTime that the given user has access to.
+        /// Use these times to check if the local version of the list is different from the server version
+        /// and only if it is, fetch the full list using <see cref="GetList(string, string)"/>
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="permission"></param>
+        /// <returns></returns>
+        List<ListLastChangeTimeDTO> GetListsLastChangeTimes(string userId, ShoppingListPermissionType permission);
+
         Task<bool> AddList(ShoppingList list, string userID);
         Task<bool> UpdateList(ShoppingList list, string userId);
         // Updates the lists property with the given name.

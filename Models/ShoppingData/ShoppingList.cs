@@ -24,6 +24,13 @@ namespace ShoppingListServer.Models
         public string SyncId { get; set; }
 
         /// <summary>
+        /// Is set by the server whenever a change to the list was done (item / permission / name / etc.)
+        /// If the timestamp of the local list is different from the one on the server, the local list is outdated and needs to be updated.
+        /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public DateTime LastChangeServerTime { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
         /// The list owner is the one that created the list. The list is stored under the owners folder.
         /// Owner can't change. Even if the owner doesn't has permissions to their own list, the remain the owner.
         /// This is done to reduce complexity. It's not necessary to reassign owners.
@@ -83,5 +90,10 @@ namespace ShoppingListServer.Models
         /// Not to be confused with the <see cref="SyncId"/>
         /// </summary>
         public virtual ExpirationToken ShareId { get; set; }
+
+        public void UpdateLastChangeServerTime()
+        {
+            LastChangeServerTime = DateTime.UtcNow;
+        }
     }
 }

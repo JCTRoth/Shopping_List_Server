@@ -40,6 +40,15 @@ namespace ShoppingListServer.Controllers
                 return BadRequest(new { message = "Not Found" });
         }
 
+        [Authorize(Roles = Role.User)]
+        [HttpGet("list_lastchange/{syncID}")]
+        public IActionResult GetListLastChangeTime(string syncID)
+        {
+            string userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            ListLastChangeTimeDTO listLastChangeTime = _shoppingService.GetListLastChangeTime(userID, syncID);
+            return Ok(listLastChangeTime);
+        }
+
         /// <summary>
         /// Returns all lists that the logged in user has access to.
         /// 
@@ -54,6 +63,18 @@ namespace ShoppingListServer.Controllers
             List<ShoppingList> lists = _shoppingService.GetLists(userID, ShoppingListPermissionType.Read);
             if (lists != null)
                 return Ok(lists);
+            else
+                return BadRequest(new { message = "Not Found" });
+        }
+
+        [Authorize(Roles = Role.User)]
+        [HttpGet("lists_lastchange")]
+        public IActionResult GetListsLastChangeTimes()
+        {
+            string userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            List<ListLastChangeTimeDTO> listsLastChangeTimes = _shoppingService.GetListsLastChangeTimes(userID, ShoppingListPermissionType.Read);
+            if (listsLastChangeTimes != null)
+                return Ok(listsLastChangeTimes);
             else
                 return BadRequest(new { message = "Not Found" });
         }
