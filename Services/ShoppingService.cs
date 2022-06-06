@@ -224,7 +224,7 @@ namespace ShoppingListServer.Services
                 // Send to all with permission Read
                 await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
             }
-
+            _db.SaveChanges();
             return success;
         }
 
@@ -237,7 +237,6 @@ namespace ShoppingListServer.Services
                 throw new ShoppingListNotFoundException(shoppingListId);
             bool success = DeleteShoppingListJson(shoppingListId);
             _db.ShoppingLists.Remove(listEntity);
-            _db.SaveChanges();
             return success;
         }
 
@@ -490,6 +489,7 @@ namespace ShoppingListServer.Services
                 // Remove the list for the user whose permission was removed.
                 await _hubService.SendListRemoved(_userService.GetById(thisUserId), shoppingListId, targetUserId);
                 await _hubService.SendListPermissionRemoved(_userService.GetById(thisUserId), _userService.GetById(targetUserId), shoppingListId);
+                _db.SaveChanges();
                 success = true;
             }
             return success;
