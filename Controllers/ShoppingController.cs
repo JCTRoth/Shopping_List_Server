@@ -321,6 +321,38 @@ namespace ShoppingListServer.Controllers
             return Ok(listEntity.SyncId);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="registrationToken">This registration token comes from the client FCM SDKs.</param>
+        /// <returns></returns>
+        [AllowAnonymous]
+        [HttpPost("test_firebase_push_message")]
+        public async Task<IActionResult> TestFirebasePushMessage([FromBody] object jsonBody)
+        {
+            Tuple<string, string> tuple = JsonConvert.DeserializeObject<Tuple<string, string>>(jsonBody.ToString());
+            string registrationToken = tuple.Item1;
+            string body = tuple.Item2;
+            // See documentation on defining a message payload.
+            var message = new FirebaseAdmin.Messaging.Message()
+            {
+                Data = new Dictionary<string, string>()
+                {
+                    { "body", body },
+                    { "title", "ServiceNow" },
+                    { "sound", "default" }
+                },
+                Token = registrationToken,
+            };
+
+            // Send a message to the device corresponding to the provided
+            // registration token.
+            string response = await FirebaseAdmin.Messaging.FirebaseMessaging.DefaultInstance.SendAsync(message);
+            // Response is a message ID string.
+            Console.WriteLine("Successfully sent message: " + response);
+            return Ok();
+        }
+
     }
 
 }

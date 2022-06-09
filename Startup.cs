@@ -20,6 +20,8 @@ using ShoppingListServer.Services;
 using ShoppingListServer.LiveUpdates;
 using ShoppingListServer.Services.Interfaces;
 using Microsoft.AspNetCore.Http.Features;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 namespace ShoppingListServer
 {
@@ -203,6 +205,12 @@ namespace ShoppingListServer
 #else
             app.UseHsts();
 #endif
+
+            FirebaseApp.Create(new AppOptions()
+            {
+                Credential = GoogleCredential.GetApplicationDefault(),
+            });
+
 
             // SignalR/Websockets
             app.UseEndpoints(endpoints =>
