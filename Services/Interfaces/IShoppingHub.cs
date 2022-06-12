@@ -8,7 +8,20 @@ namespace ShoppingListServer.LiveUpdates
 {
     public interface IShoppingHub
     {
+        /// <summary>
+        /// Send all users that user has a list shared with them.
+        /// user does not receive a message since they are the creator of the list.
+        /// only useres that have the given permission receive a message.
+        /// </summary>
         Task SendListAdded(User user, ShoppingList list, ShoppingListPermissionType permission);
+
+        /// <summary>
+        /// Send targetUser that a list has been shared with them by thisUser.
+        /// </summary>
+        Task SendListAdded(
+            User thisUser,
+            User targetUser,
+            ShoppingList list);
 
         // Send the given list to all users that have the given permission on that list, e.g.
         // if permission == Read then it's send to all users that have read permission on that list.

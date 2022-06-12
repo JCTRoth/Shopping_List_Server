@@ -109,6 +109,7 @@ namespace ShoppingListServer
             // Transient services are created each time they are requested.
             services.AddTransient<IUserHub, UserHubService>();
             services.AddTransient<IShoppingHub, ShoppingHubService>();
+            services.AddTransient<IPushNotificationService, PushNotificationService>();
 
             //_serviceProvider = services.BuildServiceProvider();
 

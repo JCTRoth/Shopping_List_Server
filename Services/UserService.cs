@@ -62,7 +62,7 @@ namespace ShoppingListServer.Services
             if (id)
             {
                 // User is already in List
-                return false; 
+                return false;
             }
 
             // Add User to list
@@ -94,7 +94,7 @@ namespace ShoppingListServer.Services
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new Claim[] 
+                Subject = new ClaimsIdentity(new Claim[]
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Email, user.EMail),
@@ -132,7 +132,7 @@ namespace ShoppingListServer.Services
             if (!string.IsNullOrEmpty(email))
             {
                 user = _db.Users.SingleOrDefault(x => x.EMail == email);
-                
+
             }
             return user;
         }
@@ -211,7 +211,7 @@ namespace ShoppingListServer.Services
             // Color
             if (userUpdate.ColorArgb.HasValue)
                 currentUser.ColorArgb = userUpdate.ColorArgb;
-            
+
             _db.SaveChanges();
             return true;
         }
@@ -229,7 +229,7 @@ namespace ShoppingListServer.Services
             return _db.Users.WithoutPasswords();
         }
 
-        public User GetById(string id) 
+        public User GetById(string id)
         {
             var user = _db.Users.FirstOrDefault(x => x.Id == id);
             return user;
@@ -297,6 +297,14 @@ namespace ShoppingListServer.Services
                                select c;
 
             return contactQuery.ToList();
+        }
+
+        public void RegisterFcmToken(string currentUserId, string fcmToken)
+        {
+            User user = FindUser(currentUserId, null);
+            user.FcmToken = fcmToken;
+            Console.WriteLine("fcm token registered " + fcmToken);
+            _db.SaveChanges();
         }
 
         // Checks if the users password hash matches with the given clear text passwords hash.

@@ -71,5 +71,14 @@ namespace ShoppingListServer.Services.Interfaces
         Task<User> AddUserFromContactShareId(string currentUserId, string contactShareId);
 
         List<UserContact> GetContacts(string userId);
+
+        /// <summary>
+        /// Assigns the given FcmToken to the given user. FcmTokens are used to send push notifications
+        /// (notifications that reach the client if the app is in background or closed)
+        /// to users via Firebase Cloud Messaging.
+        /// If a user has no token assigned, they are unable to receive push notifications.
+        /// </summary>
+        /// <param name="fcmToken"></param>
+        void RegisterFcmToken(string currentUserId, string fcmToken);
     }
 }

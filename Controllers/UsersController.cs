@@ -238,5 +238,22 @@ namespace ShoppingListServer.Controllers
             return Ok(targetUser.WithoutPassword());
         }
 
+        /// <summary>
+        /// Assigns the given FcmToken to the given user. FcmTokens are used to send push notifications
+        /// (notifications that reach the client if the app is in background or closed)
+        /// to users via Firebase Cloud Messaging.
+        /// If a user has no token assigned, they are unable to receive push notifications.
+        /// </summary>
+        /// <param name="jsonBody">Tuple<string> containing the FcmToken</param>
+        /// <exception cref="UserNotFoundException">If the user could not be found.</exception>
+        [HttpPost("register_fcm_token")]
+        public IActionResult RegisterFcmToken([FromBody] object jsonBody)
+        {
+            Tuple<string> fcmToken = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _userService.RegisterFcmToken(currentUserId, fcmToken.Item1);
+            return Ok();
+        }
+
     }
 }

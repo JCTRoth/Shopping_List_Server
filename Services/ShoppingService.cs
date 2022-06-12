@@ -20,6 +20,7 @@ namespace ShoppingListServer.Services
     public class ShoppingService : IShoppingService //, IShoppingHub
     {
         private readonly IUserService _userService;
+        private readonly IPushNotificationService _pushNotificationService;
         private readonly IShoppingHub _hubService;
         private readonly IShoppingListStorageService _storageService;
         private readonly AppSettings _appSettings;
@@ -29,12 +30,14 @@ namespace ShoppingListServer.Services
             IOptions<AppSettings> appSettings,
             AppDb db,
             IUserService userService,
+            IPushNotificationService pushNotificationService,
             IShoppingHub hubService,
             IShoppingListStorageService storageService)
         {
             _appSettings = appSettings.Value;
             _db = db;
             _hubService = hubService;
+            _pushNotificationService = pushNotificationService;
             _userService = userService;
             _storageService = storageService;
         }
@@ -144,7 +147,9 @@ namespace ShoppingListServer.Services
                 {
                     _db.ShoppingLists.Add(list);
                     _db.SaveChanges();
-                    await _hubService.SendListAdded(_userService.GetById(userID), list, ShoppingListPermissionType.Read);
+                    User user = _userService.GetById(userID);
+                    await _hubService.SendListAdded(user, list, ShoppingListPermissionType.Read);
+                    await _pushNotificationService.SendListAdded(user, list.SyncId, ShoppingListPermissionType.Read);
                     return true;
                 }
                 else
@@ -381,6 +386,14 @@ namespace ShoppingListServer.Services
             return users;
         }
 
+        public List<string> GetUsersWithPermissionsFiltered(string filteredUserId, string listSyncId, ShoppingListPermissionType permission)
+        {
+            List<string> users = GetUsersWithPermissions(listSyncId, permission);
+            if (!string.IsNullOrEmpty(filteredUserId))
+                users.Remove(filteredUserId);
+            return users;
+        }
+
         // Adds the given list permission to target user. Performed by thisUser (thisUser needs permission to change permissions of the given list!)
         // If target use has no permission yet, they get a message that a new list was added instead of just a permission change.
         // \param thisUser - the user who tries to change the permission
@@ -426,8 +439,11 @@ namespace ShoppingListServer.Services
             if (first == null)
             {
                 targetList = LoadShoppingList(shoppingListId);
-                await _hubService.SendListAdded(_userService.GetById(thisUserId), targetList, ShoppingListPermissionType.Read);
-                await _hubService.SendListPermissionChanged(_userService.GetById(thisUserId), _userService.GetById(targetUserId), shoppingListId, permission);
+                User user = _userService.GetById(thisUserId);
+                User targetUser = _userService.GetById(targetUserId);
+                await _hubService.SendListAdded(user, targetUser, targetList);
+                await _hubService.SendListPermissionChanged(user, targetUser, shoppingListId, permission);
+                await _pushNotificationService.SendListAdded(user, targetUser, targetList.SyncId);
             }
             return true;
         }

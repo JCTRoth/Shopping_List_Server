@@ -70,6 +70,8 @@ namespace ShoppingListServer.Services.Interfaces
 
         List<string> GetUsersWithPermissions(string listSyncId, ShoppingListPermissionType permission);
 
+        List<string> GetUsersWithPermissionsFiltered(string filteredUserId, string listSyncId, ShoppingListPermissionType permission);
+
         /// <summary>
         /// Generates a token of this lists share id. The share id can be used to share
         /// this list with other users, by them calling <see cref="AddListFromListShareId(string, string)"/>
