@@ -2,6 +2,7 @@
 using ShoppingListServer.Database;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Helpers;
+using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 using System;
@@ -10,6 +11,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace ShoppingListServer.Services
@@ -40,18 +42,19 @@ namespace ShoppingListServer.Services
         /// <see cref="StatusMessages.UserIsAlreadyVerified"/>
         /// <see cref="StatusMessages.UserHasNoEMailAddress"/>
         /// </summary>
-        public async Task<bool> SendEMailVerificationCodeAndAddToken(User user)
+        public async Task<bool> SendEMailVerificationCodeAndAddToken(string userId)
         {
+            User user = _db.FindUser_ID(userId);
             if (user.IsVerified)
                 throw new Exception(StatusMessages.UserIsAlreadyVerified);
             if (string.IsNullOrEmpty(user.EMail))
                 throw new Exception(StatusMessages.UserHasNoEMailAddress);
             EMailVerificationToken token = AddEMailVerificationToken(user);
-            return await SendEMailWithUrlCode(user.EMail, token.UrlCode);
+            return await SendEMailWithUrlCode(user.Username, user.EMail, token.UrlCode);
         }
 
         // Sends a verification e-mail 
-        private async Task<bool> SendEMailWithUrlCode(string targetEmail, string urlCode)
+        private async Task<bool> SendEMailWithUrlCode(string username, string targetEMail, string urlCode)
         {
             SmtpClient client = new SmtpClient();
             client.Host = _appSettings.NoReplyEMailHost;
@@ -59,14 +62,20 @@ namespace ShoppingListServer.Services
             client.EnableSsl = true;
             client.Credentials = new NetworkCredential(_appSettings.NoReplyEMailAddress, _appSettings.NoReplyEMailPassword);
 
-            MailMessage message = new MailMessage("noreply@shopping-now.net", targetEmail);
-            message.Body = "Thank you for registering for ShoppingNow.\n" +
-                "If you haven't tried to register, you can ignore this mail.\n\n" +
-                "Please click the following link to complete registration:\n" +
-                "https://shopping-now.net/verify/" + urlCode;
-            message.BodyEncoding = System.Text.Encoding.UTF8;
-            message.Subject = "ShoppingNow Registration";
-            message.SubjectEncoding = System.Text.Encoding.UTF8;
+            string link = "https://shopping-now.net/verify/em/" + urlCode;
+            string htmlBody =
+                HtmlPageFactory.CreateHtmlHeader() +
+                HtmlPageFactory.CreateGreeting(username) +
+                "Thank you for registering for ShoppingNow.<br>\n" +
+                "If you haven't tried to register, you can ignore this mail.<br><br>\n" +
+                "Please click the following button to complete registration:<br><br>\n" +
+                HtmlPageFactory.CreateButton("Verify E-Mail", link) + "<br>\n" +
+                "or click here:<br>\n" +
+                HtmlPageFactory.CreateHyperlink(link, link) + "<br><br>\n" +
+                HtmlPageFactory.CreateNoReplyDisclaimer() +
+                HtmlPageFactory.CreateHtmlFooter();
+
+            MailMessage message = HtmlPageFactory.CreateMailMessageTemplate(targetEMail, htmlBody);
 
             try
             {
@@ -74,7 +83,7 @@ namespace ShoppingListServer.Services
             }
             catch (Exception e)
             {
-                Console.WriteLine("An exception occurred while sending a mail to " + targetEmail + ": " + e.Message);
+                Console.WriteLine("An exception occurred while sending a mail to " + targetEMail + ": " + e.Message);
                 return false;
             }
             return true;

@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using ShoppingListServer.Logic;
 using ShoppingListServer.Services.Interfaces;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ShoppingListServer.Controllers
@@ -31,7 +32,8 @@ namespace ShoppingListServer.Controllers
         public async Task<IActionResult> RequestResetPasswordCode([FromBody] object jsonBody)
         {
             Tuple<string> passwordUpdate = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
-            bool success = await _resetPasswordService.SendResetPasswordEMailAndAddToken(passwordUpdate.Item1);
+            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            bool success = await _resetPasswordService.SendResetPasswordEMailAndAddToken(currentUserId, passwordUpdate.Item1);
             if (success)
                 return Ok();
             else

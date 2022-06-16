@@ -14,6 +14,8 @@ namespace ShoppingListServer.Database
         public static User FindUser_ID(this AppDb db, string id)
         {
             var user = db.Users.SingleOrDefault(x => x.Id == id);
+            if (user == null)
+                throw new UserNotFoundException(id);
             return user;
         }
 
@@ -23,6 +25,24 @@ namespace ShoppingListServer.Database
         /// Email only has to have pw in request
         /// </summary>
         public static User FindUser_EMail(this AppDb db, string email)
+        {
+            User user = null;
+            if (!string.IsNullOrEmpty(email))
+            {
+                user = db.Users.SingleOrDefault(x => x.EMail == email);
+                if (user == null)
+                    throw new UserNotFoundException(email);
+            }
+            return user;
+        }
+
+        private static User FindUserByIDWithoutException(this AppDb db, string id)
+        {
+            var user = db.Users.SingleOrDefault(x => x.Id == id);
+            return user;
+        }
+
+        private static User FindUserByEMailWithoutException(this AppDb db, string email)
         {
             User user = null;
 
@@ -46,13 +66,13 @@ namespace ShoppingListServer.Database
             User returnUser = null;
             if (!string.IsNullOrEmpty(id))
             {
-                returnUser = db.FindUser_ID(id);
+                returnUser = db.FindUserByIDWithoutException(id);
                 if (returnUser == null)
                     throw new UserNotFoundException(id);
             }
             else if (!string.IsNullOrEmpty(email))
             {
-                returnUser = db.FindUser_EMail(email);
+                returnUser = db.FindUserByEMailWithoutException(email);
                 if (returnUser == null)
                     throw new UserNotFoundException(email);
             }

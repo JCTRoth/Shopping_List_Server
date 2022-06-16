@@ -11,6 +11,7 @@ using ShoppingListServer.Models;
 using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
 using ShoppingListServer.Services.Interfaces;
+using ShoppingListServer.Logic;
 
 namespace ShoppingListServer.Controllers
 {
@@ -319,6 +320,19 @@ namespace ShoppingListServer.Controllers
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ShoppingList listEntity = await _shoppingService.AddListFromListShareId(currentUserId, listShareId.Item1);
             return Ok(listEntity.SyncId);
+        }
+
+        /// <summary>
+        /// This is the fallback when sharing a list via app-link.
+        /// The link is generated on client side.
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("lsid/{listId}")]
+        [AllowAnonymous]
+        public IActionResult HandleAppLinkAddContact(string listId)
+        {
+            string redirectToMainPage = HtmlPageFactory.CreateRedirectToShoppingNowPage();
+            return base.Content(redirectToMainPage, "text/html");
         }
 
         /// <summary>

@@ -8,7 +8,7 @@ namespace ShoppingListServer.Services.Interfaces
 {
     public interface IEMailVerificationService
     {
-        Task<bool> SendEMailVerificationCodeAndAddToken(User user);
+        Task<bool> SendEMailVerificationCodeAndAddToken(string userId);
 
         // Verifies a user by email verification code and removes the users email verification tokens.
         // Also clears all remaining EMail verification tokens if the user is already registered.

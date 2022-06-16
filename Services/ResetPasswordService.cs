@@ -3,6 +3,7 @@ using ShoppingListServer.Database;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
+using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 using System;
@@ -34,10 +35,11 @@ namespace ShoppingListServer.Services
             _userHub = userHub;
         }
 
-        public async Task<bool> SendResetPasswordEMailAndAddToken(string email)
+        public async Task<bool> SendResetPasswordEMailAndAddToken(string userId, string email)
         {
             ResetPasswordToken token = AddResetPasswordToken(email);
-            return await SendResetPasswordEMail(email, token.Code);
+            User user = _db.FindUser_ID(userId);
+            return await SendResetPasswordEMail(user.Username, email, token.Code);
         }
 
         /// <summary>
@@ -46,7 +48,7 @@ namespace ShoppingListServer.Services
         /// <param name="targetEMail"></param>
         /// <param name="code"></param>
         /// <returns></returns>
-        private async Task<bool> SendResetPasswordEMail(string targetEMail, string code)
+        private async Task<bool> SendResetPasswordEMail(string username, string targetEMail, string code)
         {
             SmtpClient client = new SmtpClient();
             client.Host = _appSettings.NoReplyEMailHost;
@@ -54,14 +56,20 @@ namespace ShoppingListServer.Services
             client.EnableSsl = true;
             client.Credentials = new NetworkCredential(_appSettings.NoReplyEMailAddress, _appSettings.NoReplyEMailPassword);
 
-            MailMessage message = new MailMessage("noreply@shopping-now.net", targetEMail);
-            message.Body = "Reset your password using the following code:\n" +
-                "Code: " + code + "\n" +
-                "If you have ShoppingNow installed, you can just click on the following link:\n" +
-                "https://shopping-now.net:5678/users/resetpassword2/" + "/" + code;
-            message.BodyEncoding = System.Text.Encoding.UTF8;
-            message.Subject = "ShoppingNow Reset Password";
-            message.SubjectEncoding = System.Text.Encoding.UTF8;
+            string link = "https://shopping-now.net/users/rp/" + code;
+            string htmlBody =
+                HtmlPageFactory.CreateHtmlHeader() +
+                HtmlPageFactory.CreateGreeting(username) +
+                "You can reset your password by entering the following code in your app:<br><br>\n" +
+                "Code:\n" +
+                "<h2>" + code + "</h2>\n" +
+                "If you have ShoppingNow installed, you can just click the following button:<br><br>\n" +
+                HtmlPageFactory.CreateButton("Reset Password", link) + "<br>\n" +
+                "or click here:<br>\n" +
+                HtmlPageFactory.CreateHyperlink(link, link) + "<br><br>\n" +
+                HtmlPageFactory.CreateNoReplyDisclaimer() +
+                HtmlPageFactory.CreateHtmlFooter();
+            MailMessage message = HtmlPageFactory.CreateMailMessageTemplate(targetEMail, htmlBody);
 
             try
             {

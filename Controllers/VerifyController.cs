@@ -15,12 +15,10 @@ namespace ShoppingListServer.Controllers
     public class VerifyController : Controller
     {
         private IEMailVerificationService _emailVerificationService;
-        private IUserService _userService;
 
-        public VerifyController(IEMailVerificationService emailVerificationService, IUserService userService)
+        public VerifyController(IEMailVerificationService emailVerificationService)
         {
             _emailVerificationService = emailVerificationService;
-            _userService = userService;
         }
 
         /// <summary>
@@ -34,22 +32,19 @@ namespace ShoppingListServer.Controllers
         [HttpPost("resendVerificationEMail")]
         public async Task<IActionResult> ResendVerificationEMail()
         {
-            User user = _userService.GetById(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            if (user != null)
+            string userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (await _emailVerificationService.SendEMailVerificationCodeAndAddToken(userId))
             {
-                if (await _emailVerificationService.SendEMailVerificationCodeAndAddToken(user))
-                {
-                    return Ok();
-                }
+                return Ok();
             }
-            return BadRequest(new { message = "User does not exist." });
+            return BadRequest(new { message = "Something went wrong." });
         }
 
         // This address is supposed to be called from a web browser.
         // Verify a user given a code that was sent to their email address when they registered.
         // Returns a simple html page with a message of what happened.
         [AllowAnonymous]
-        [HttpGet("verify/{urlCode}")]
+        [HttpGet("em/{urlCode}")]
         public ContentResult Verify(string urlCode)
         {
             try

@@ -69,7 +69,7 @@ namespace ShoppingListServer.Controllers
 
             if (_userService.AddUser(new_user, registerRequest.Password))
             {
-                await _emailVerificationService.SendEMailVerificationCodeAndAddToken(new_user);
+                await _emailVerificationService.SendEMailVerificationCodeAndAddToken(new_user.Id);
                 return Ok(new_user);
             }
             else
@@ -127,6 +127,20 @@ namespace ShoppingListServer.Controllers
                 return Ok();
             else
                 return BadRequest("Something went wrong :(");
+        }
+
+        /// <summary>
+        /// This is the fallback when the link in the reset password e-mail is clicked
+        /// although the app isn't installed. This link should only be used as app-link.
+        /// see <see cref="IResetPasswordService.SendResetPasswordEMailAndAddToken(string)"/>
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("rp/{code}")]
+        [AllowAnonymous]
+        public IActionResult HandleAppLinkResetPassword(string code)
+        {
+            string redirectToMainPage = HtmlPageFactory.CreateRedirectToShoppingNowPage();
+            return base.Content(redirectToMainPage, "text/html");
         }
 
         [HttpGet("{id}")]
@@ -236,6 +250,19 @@ namespace ShoppingListServer.Controllers
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             User targetUser = await _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
             return Ok(targetUser.WithoutPassword());
+        }
+
+        /// <summary>
+        /// This is the fallback when adding a new contact via app-link.
+        /// The link is generated on client side.
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("csid/{contactId}")]
+        [AllowAnonymous]
+        public IActionResult HandleAppLinkAddContact(string contactId)
+        {
+            string redirectToMainPage = HtmlPageFactory.CreateRedirectToShoppingNowPage();
+            return base.Content(redirectToMainPage, "text/html");
         }
 
         /// <summary>

@@ -152,5 +152,14 @@ show Users;
 describe Users;
 INSERT INTO Users VALUES(1, "bla@bla", "bla", "blalast", "username1", "passhash", "rolewhatever", "tokenhuh", "salty");
 
+### Edit nginx
 
+```
+sudo nano /etc/nginx/sites-available/default
+```
 
+After changing the file:
+
+```
+sudo service nginx reload
+```
