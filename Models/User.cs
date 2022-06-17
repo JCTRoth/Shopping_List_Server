@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Drawing;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
@@ -17,6 +18,7 @@ namespace ShoppingListServer.Entities
         public string EMail { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
+        [Unicode(true)]
         public string Username { get; set; }
         // User Color.ToArgb() and Color.FromArgb(Color) to work with this.
         public System.Int32? ColorArgb { get; set; }
