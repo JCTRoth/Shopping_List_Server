@@ -29,11 +29,22 @@ namespace ShoppingListServer.Services
 
         public async Task SendListAdded(User thisUser, string listId, ShoppingListPermissionType permission)
         {
-            var fcmTokens = from l in _db.Set<ShoppingList>()
-                            join perm in _db.Set<ShoppingListPermission>() on l.SyncId equals perm.ShoppingListId
-                            join u in _db.Set<User>() on perm.UserId equals u.Id
-                            where !thisUser.Id.Equals(u.Id) && listId.Equals(l.SyncId) && perm.PermissionType.HasFlag(permission) && !string.IsNullOrEmpty(u.FcmToken)
-                            select u.FcmToken;
+            var fcmTokens = from list in _db.Set<ShoppingList>()
+                            join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                            join user in _db.Set<User>() on thisUser.Id equals user.Id
+                            join contact in _db.Set<UserContact>().DefaultIfEmpty() on user.Id equals contact.UserSourceId
+                            where !thisUser.Id.Equals(user.Id) &&
+                                  listId.Equals(list.SyncId) &&
+                                  perm.PermissionType.HasFlag(permission) &&
+                                  !string.IsNullOrEmpty(user.FcmToken) &&
+                                  (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
+                            select user.FcmToken;
+
+            //var fcmTokens = from l in _db.Set<ShoppingList>()
+            //                join perm in _db.Set<ShoppingListPermission>() on l.SyncId equals perm.ShoppingListId
+            //                join u in _db.Set<User>() on perm.UserId equals u.Id
+            //                where !thisUser.Id.Equals(u.Id) && listId.Equals(l.SyncId) && perm.PermissionType.HasFlag(permission) && !string.IsNullOrEmpty(u.FcmToken)
+            //                select u.FcmToken;
 
             foreach (var fcmToken in fcmTokens)
             {

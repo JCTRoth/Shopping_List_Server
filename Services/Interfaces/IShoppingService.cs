@@ -19,6 +19,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// <param name="shoppingListId">Id of the searched shopping list</param>
         /// <returns>The shoppinglist with the given id</returns>
         /// <exception cref="NoShoppingListPermissionException">If the user with the given id has no read permission for the list.</exception>
+        /// <see cref="StatusMessages.ListIsOwnedByBlockedUser">If the list exists but the user that owns it is blocked.</exception>
         ShoppingList GetList(string userId, string shoppingListId);
         ListLastChangeTimeDTO GetListLastChangeTime(string userId, string shoppingListId);
         List<ShoppingListWithPermissionDTO> GetLists(string userId);

@@ -54,6 +54,8 @@ namespace ShoppingListServer.Services
             if (list == null)
                 throw new ShoppingListNotFoundException(shoppingListId);
             CheckPermissionWithException(list, userId, ShoppingListPermissionType.Read);
+            if (list.Owner != null)
+                CheckIfListBlockedWithException(userId, list.Owner.Id);
             return LoadShoppingList(shoppingListId);
         }
 
@@ -69,8 +71,10 @@ namespace ShoppingListServer.Services
         public List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission)
         {
             var query = from list in _db.Set<ShoppingList>()
-                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
-                        where perm.UserId.Equals(userId) && perm.PermissionType.HasFlag(permission)
+                        join perm in _db.Set<ShoppingListPermission>() on new { X1 = list.SyncId, X2 = userId } equals new { X1 = perm.ShoppingListId, X2 = perm.UserId }
+                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
+                        where perm.PermissionType.HasFlag(permission) &&
+                              (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
                         select list;
 
             List<ShoppingList> listEntities = query.ToList();
@@ -81,19 +85,6 @@ namespace ShoppingListServer.Services
 
                 if (list != null)
                 {
-                    if (listEntity.Owner != null)
-                    {
-                        bool isBlocked;
-                        var blockedQuery = from userContact in _db.Set<UserContact>()
-                                           where userContact.UserSourceId == userId &&
-                                                 userContact.UserTargetId == listEntity.Owner.Id &&
-                                                 userContact.UserContactType == UserContactType.Ignored
-                                           select userContact;
-                        isBlocked = blockedQuery.FirstOrDefault() != null;
-                        if (isBlocked)
-                            continue;
-                    }
-
                     lists.Add(list);
                 }
             }
@@ -104,20 +95,22 @@ namespace ShoppingListServer.Services
         {
             // How to get tuple out of querry: https://stackoverflow.com/a/33545601
             var query = from list in _db.Set<ShoppingList>()
-                        join perm in _db.Set<ShoppingListPermission>()
-                            on list.SyncId equals perm.ShoppingListId
-                        where perm.UserId.Equals(userId)
+                        join perm in _db.Set<ShoppingListPermission>() on new { X1 = list.SyncId, X2 = userId } equals new { X1 = perm.ShoppingListId, X2 = perm.UserId }
+                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
+                        where (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
                         select new ShoppingListWithPermissionDTO( list, perm.UserId, perm.PermissionType );
             return query.ToList();
-            //return _db.ShoppingLists.Where(list => CheckPermission(list, userId, permission)).ToList();
         }
 
         public List<ListLastChangeTimeDTO> GetListsLastChangeTimes(string userId, ShoppingListPermissionType permission)
         {
             var query = from list in _db.Set<ShoppingList>()
-                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
-                        where perm.UserId.Equals(userId) && perm.PermissionType.HasFlag(permission)
+                        join perm in _db.Set<ShoppingListPermission>() on new { X1=list.SyncId, X2=userId } equals new { X1=perm.ShoppingListId, X2=perm.UserId }
+                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
+                        where perm.PermissionType.HasFlag(permission) &&
+                              (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
                         select new ListLastChangeTimeDTO(list.SyncId, list.LastChangeServerTime);
+
             return query.ToList();
         }
 
@@ -374,24 +367,29 @@ namespace ShoppingListServer.Services
 
         public List<string> GetUsersWithPermissions(string listSyncId, ShoppingListPermissionType permission)
         {
-            List<Tuple<string, ShoppingListPermissionType>> tuples = GetListPermissions(listSyncId);
-            List<string> users = new List<string>();
-            foreach (Tuple<string, ShoppingListPermissionType> tuple in tuples)
-            {
-                if (tuple.Item2.HasFlag(permission))
-                {
-                    users.Add(tuple.Item1);
-                }
-            }
-            return users;
+            var query = from list in _db.Set<ShoppingList>()
+                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                        join user in _db.Set<User>() on perm.UserId equals user.Id
+                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        where perm.PermissionType.HasFlag(permission) &&
+                              (contact == null || contact.UserContactType != UserContactType.Ignored)
+                        select user.Id;
+
+            return query.ToList();
         }
 
         public List<string> GetUsersWithPermissionsFiltered(string filteredUserId, string listSyncId, ShoppingListPermissionType permission)
         {
-            List<string> users = GetUsersWithPermissions(listSyncId, permission);
-            if (!string.IsNullOrEmpty(filteredUserId))
-                users.Remove(filteredUserId);
-            return users;
+            var query = from list in _db.Set<ShoppingList>()
+                        join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                        join user in _db.Set<User>() on perm.UserId equals user.Id
+                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1=contact.UserSourceId, X2=contact.UserTargetId }
+                        where filteredUserId != user.Id &&
+                              perm.PermissionType.HasFlag(permission) &&
+                              (contact == null || contact.UserContactType != UserContactType.Ignored)
+                        select user.Id;
+
+            return query.ToList();
         }
 
         // Adds the given list permission to target user. Performed by thisUser (thisUser needs permission to change permissions of the given list!)
@@ -580,6 +578,23 @@ namespace ShoppingListServer.Services
             ShoppingListPermission permission = GetPermission(list, userId);
             if (!CheckPermission(permission, expectedPermission))
                 throw new NoShoppingListPermissionException(permission, expectedPermission);
+        }
+
+        private bool CheckIfListBlocked(string userId, string listOwnerId)
+        {
+            var blockedQuery = from userContact in _db.Set<UserContact>()
+                               where userContact.UserSourceId == userId &&
+                                     userContact.UserTargetId == listOwnerId &&
+                                     userContact.UserContactType == UserContactType.Ignored
+                               select userContact;
+            return blockedQuery.FirstOrDefault() != null;
+        }
+
+        private void CheckIfListBlockedWithException(string userId, string listOwnerId)
+        {
+            bool isBlocked = CheckIfListBlocked(userId, listOwnerId);
+            if (isBlocked)
+                throw new Exception(StatusMessages.ListIsOwnedByBlockedUser);
         }
 
         private string GetOwnerId(string shoppingListId)
