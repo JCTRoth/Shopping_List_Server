@@ -68,6 +68,11 @@ namespace ShoppingListServer.Services
                     { "list_sync_id", listId },
                     { "sound", "default" }
                 },
+                Notification = new FirebaseAdmin.Messaging.Notification()
+                {
+                    Title = title,
+                    Body = body
+                },
                 Token = fcmToken,
             };
 
