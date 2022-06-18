@@ -22,7 +22,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// <see cref="StatusMessages.ListIsOwnedByBlockedUser">If the list exists but the user that owns it is blocked.</exception>
         ShoppingList GetList(string userId, string shoppingListId);
         ListLastChangeTimeDTO GetListLastChangeTime(string userId, string shoppingListId);
-        List<ShoppingListWithPermissionDTO> GetLists(string userId);
+        List<ShoppingListWithPermissionDTO> GetListsWithPermission(string userId, ShoppingListPermissionType permission);
         // Return all lists that the user has the given permission for.
         List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission);
 

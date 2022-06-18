@@ -73,7 +73,7 @@ namespace ShoppingListServer.Services
                     Title = title,
                     Body = body
                 },
-                Token = fcmToken,
+                Token = fcmToken
             };
 
             // Send a message to the device corresponding to the provided fcmToken.

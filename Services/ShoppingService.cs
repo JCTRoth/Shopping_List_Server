@@ -70,9 +70,15 @@ namespace ShoppingListServer.Services
 
         public List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission)
         {
+            // the thing with .DefaultIfEmpty() and the contactGroup is a way of formulating a left outer join in linq,
+            // see https://docs.microsoft.com/en-us/dotnet/csharp/linq/perform-left-outer-joins
+            // In this case, it is not necessary to have a contact but if there is one, don't include entries where the target user
+            // is blocked by this user.
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>() on new { X1 = list.SyncId, X2 = userId } equals new { X1 = perm.ShoppingListId, X2 = perm.UserId }
-                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
+                        join contact in _db.Set<UserContact>() on new { X1 = userId, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        into contactGroup
+                        from contact in contactGroup.DefaultIfEmpty()
                         where perm.PermissionType.HasFlag(permission) &&
                               (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
                         select list;
@@ -91,13 +97,16 @@ namespace ShoppingListServer.Services
             return lists;
         }
 
-        public List<ShoppingListWithPermissionDTO> GetLists(string userId)
+        public List<ShoppingListWithPermissionDTO> GetListsWithPermission(string userId, ShoppingListPermissionType permission)
         {
             // How to get tuple out of querry: https://stackoverflow.com/a/33545601
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>() on new { X1 = list.SyncId, X2 = userId } equals new { X1 = perm.ShoppingListId, X2 = perm.UserId }
-                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
-                        where (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
+                        join contact in _db.Set<UserContact>() on new { X1 = userId, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        into contactGroup
+                        from contact in contactGroup.DefaultIfEmpty()
+                        where perm.PermissionType.HasFlag(permission) &&
+                              (contact == null || contact.UserContactType != UserContactType.Ignored)
                         select new ShoppingListWithPermissionDTO( list, perm.UserId, perm.PermissionType );
             return query.ToList();
         }
@@ -106,9 +115,11 @@ namespace ShoppingListServer.Services
         {
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>() on new { X1=list.SyncId, X2=userId } equals new { X1=perm.ShoppingListId, X2=perm.UserId }
-                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on userId equals contact.UserSourceId
+                        join contact in _db.Set<UserContact>() on new { X1 = userId, X2 = list.Owner.Id } equals new { X1=contact.UserSourceId, X2=contact.UserTargetId }
+                        into contactGroup
+                        from contact in contactGroup.DefaultIfEmpty()
                         where perm.PermissionType.HasFlag(permission) &&
-                              (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
+                              (contact == null || contact.UserContactType != UserContactType.Ignored)
                         select new ListLastChangeTimeDTO(list.SyncId, list.LastChangeServerTime);
 
             return query.ToList();
@@ -370,7 +381,9 @@ namespace ShoppingListServer.Services
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
                         join user in _db.Set<User>() on perm.UserId equals user.Id
-                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        into contactGroup
+                        from contact in contactGroup.DefaultIfEmpty()
                         where perm.PermissionType.HasFlag(permission) &&
                               (contact == null || contact.UserContactType != UserContactType.Ignored)
                         select user.Id;
@@ -383,7 +396,9 @@ namespace ShoppingListServer.Services
             var query = from list in _db.Set<ShoppingList>()
                         join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
                         join user in _db.Set<User>() on perm.UserId equals user.Id
-                        join contact in _db.Set<UserContact>().DefaultIfEmpty() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1=contact.UserSourceId, X2=contact.UserTargetId }
+                        join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                        into contactGroup
+                        from contact in contactGroup.DefaultIfEmpty()
                         where filteredUserId != user.Id &&
                               perm.PermissionType.HasFlag(permission) &&
                               (contact == null || contact.UserContactType != UserContactType.Ignored)
