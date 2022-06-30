@@ -384,7 +384,8 @@ namespace ShoppingListServer.Services
                         join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
                         into contactGroup
                         from contact in contactGroup.DefaultIfEmpty()
-                        where perm.PermissionType.HasFlag(permission) &&
+                        where listSyncId == list.SyncId && 
+                              perm.PermissionType.HasFlag(permission) &&
                               (contact == null || contact.UserContactType != UserContactType.Ignored)
                         select user.Id;
 
@@ -399,7 +400,8 @@ namespace ShoppingListServer.Services
                         join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
                         into contactGroup
                         from contact in contactGroup.DefaultIfEmpty()
-                        where filteredUserId != user.Id &&
+                        where listSyncId == list.SyncId &&
+                              filteredUserId != user.Id &&
                               perm.PermissionType.HasFlag(permission) &&
                               (contact == null || contact.UserContactType != UserContactType.Ignored)
                         select user.Id;
@@ -454,9 +456,12 @@ namespace ShoppingListServer.Services
                 targetList = LoadShoppingList(shoppingListId);
                 User user = _userService.GetById(thisUserId);
                 User targetUser = _userService.GetById(targetUserId);
-                await _hubService.SendListAdded(user, targetUser, targetList);
                 await _hubService.SendListPermissionChanged(user, targetUser, shoppingListId, permission);
-                await _pushNotificationService.SendListAdded(user, targetUser, targetList.SyncId);
+                if (user != targetUser) // Only send notificaiton to target user if they haven't added the list themselfs (e.g. via app-link)
+                {
+                    await _hubService.SendListAdded(user, targetUser, targetList);
+                    await _pushNotificationService.SendListAdded(user, targetUser, targetList.SyncId);
+                }
             }
             return true;
         }
@@ -559,7 +564,7 @@ namespace ShoppingListServer.Services
             }
             else
             {
-                await AddOrUpdateListPermission(null, currentUserId, targetList.SyncId, ShoppingListPermissionType.WriteAndAddPermission, false, false);
+                await AddOrUpdateListPermission(currentUserId, currentUserId, targetList.SyncId, ShoppingListPermissionType.WriteAndAddPermission, false, false);
             }
             return targetList;
         }

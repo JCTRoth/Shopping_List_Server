@@ -24,7 +24,8 @@ namespace ShoppingListServer.Services
         {
             if (targetUser != null && !string.IsNullOrEmpty(targetUser.FcmToken))
             {
-                await SendListPushNotification(thisUser.Username, listId, targetUser.FcmToken);
+                string username = thisUser != null ? thisUser.Username : "";
+                await SendListPushNotification(username, listId, targetUser.FcmToken);
             }
         }
 
