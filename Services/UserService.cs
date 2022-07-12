@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShoppingListServer.Database;
@@ -15,6 +17,8 @@ using ShoppingListServer.Exceptions;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
+using ShoppingListServer.Models.Commands;
+using ShoppingListServer.Models.ShoppingData;
 using ShoppingListServer.Services.Interfaces;
 
 namespace ShoppingListServer.Services
@@ -444,6 +448,159 @@ namespace ShoppingListServer.Services
         {
             if (CheckIfEMailAlreadyInUse(eMail))
                 throw new EMailInUseException(eMail);
+        }
+
+        public void AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info)
+        {
+            try
+            {
+                User user = FindUser(currentUserId, null);
+
+                // Update database.
+                //DateTime lastChange = DateTime.Now;
+                if (user.ProfilePictureInfo == null)
+                {
+                    user.ProfilePictureInfo = new ImageInfo();
+                }
+                user.ProfilePictureInfo.ApplyChanges(info);
+                //user.ProfilePictureInfo.LastChangeTransformationTime = lastChange;
+                //user.ProfilePictureInfo.LastChangeImageFileTime = lastChange;
+                _db.SaveChanges();
+
+                // Copy file.
+                string filePath = GetProfilePicturePath(currentUserId);
+                var stream = new FileStream(filePath, FileMode.Create);
+                picture.CopyToAsync(stream);
+            }
+            catch (Exception ex)
+            {
+                Console.Write(ex.ToString());
+            }
+        }
+
+        public void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO trans)
+        {
+            User user = FindUser(currentUserId, null);
+
+            // Update database.
+            // Only update LastChangeTransformationTime, not LastChangeImageFileTime.
+            DateTime lastChange = DateTime.Now;
+            if (user.ProfilePictureInfo == null)
+            {
+                user.ProfilePictureInfo = new ImageInfo();
+            }
+            user.ProfilePictureInfo.ApplyChanges(trans);
+            user.ProfilePictureInfo.LastChangeTransformationTime = lastChange;
+            _db.SaveChanges();
+        }
+
+        public bool RemoveProfilePicture(string currentUserId)
+        {
+            User user = FindUser(currentUserId, null);
+
+            // Remove database entry.
+            user.ProfilePictureInfo = null;
+            _db.SaveChanges();
+
+            // Remove image file.
+            string filePath = GetProfilePicturePath(currentUserId);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                return true;
+            }
+
+            return false;
+        }
+
+        public ImageInfo GetProfilePictureInfo(string currentUserId)
+        {
+            User user = FindUser(currentUserId, null);
+            if (user.ProfilePictureInfo != null)
+            {
+                string filePath = GetProfilePicturePath(currentUserId);
+                if (File.Exists(filePath))
+                {
+                    return user.ProfilePictureInfo;
+                }
+                else
+                {
+                    Console.WriteLine("ERROR: Profile picture file not found although ProfilePictureInfo is present.");
+                    user.ProfilePictureInfo = null;
+                    _db.SaveChanges();
+                }
+            }
+            throw new Exception(StatusMessages.NoProfilePictureFound);
+        }
+
+        public async Task<byte[]> GetProfilePicture(string currentUserId)
+        {
+            User user = FindUser(currentUserId, null);
+            if (user.ProfilePictureInfo != null)
+            {
+                string filePath = GetProfilePicturePath(currentUserId);
+                if (File.Exists(filePath))
+                {
+                    return await File.ReadAllBytesAsync(filePath);
+                }
+                else
+                {
+                    Console.WriteLine("ERROR: Profile picture file not found although ProfilePictureInfo is present.");
+                    user.ProfilePictureInfo = null;
+                    _db.SaveChanges();
+                }
+            }
+            throw new Exception(StatusMessages.NoProfilePictureFound);
+        }
+
+        /// <summary>
+        /// Find all the last change times of the relevant users.
+        /// Relevant users are those that can be seen by this user.
+        /// They are in the contact list of this user or in any shared list.
+        /// </summary>
+        /// <param name="currentUserId"></param>
+        /// <returns></returns>
+        public List<UserPictureLastChangeTimeDTO> GetUserPictureLastChangeTimes(string currentUserId)
+        {
+            User thisUser = GetById(currentUserId);
+
+            // this user
+            var thisUserQuery = from u in _db.Set<User>()
+                                where u.Id == currentUserId && u.ProfilePictureInfo != null
+                                select u;
+
+            // users from contacts
+            var contactUsersQuery = from c in _db.Set<UserContact>()
+                                    where c.UserSourceId == currentUserId && c.UserTarget.ProfilePictureInfo != null
+                                    select c.UserTarget;
+            // users from shared lists
+            var sharedLists = from perm in _db.Set<ShoppingListPermission>()
+                              where perm.UserId == currentUserId
+                              select perm.ShoppingList;
+            var sharedUsers = from list in sharedLists
+                              join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                              where perm.UserId != currentUserId && perm.User.ProfilePictureInfo != null
+                              select perm.User;
+
+            // concat all queries together
+            var users = thisUserQuery.Concat(contactUsersQuery).Concat(sharedUsers);
+
+            // remove duplicates and create UserPictureLastChangeTimeDTO
+            var times = from user in users.Distinct()
+                        select new UserPictureLastChangeTimeDTO(user.Id, user.ProfilePictureInfo.LastChangeTransformationTime, user.ProfilePictureInfo.LastChangeImageFileTime);
+
+            return times.ToList();
+        }
+
+        private string GetProfilePicturePath(string userId)
+        {
+            string pictureName = GetProfilePictureFilename(userId);
+            return System.IO.Path.Combine(_filesystemService.GetUserFolderPath(userId), pictureName);
+        }
+
+        private string GetProfilePictureFilename(string userId)
+        {
+            return string.Format("profile_picture_{0}.jpg", userId.Substring(userId.Length - 8, 8));
         }
     }
 }

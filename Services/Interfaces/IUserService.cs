@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Models;
+using ShoppingListServer.Models.Commands;
 
 namespace ShoppingListServer.Services.Interfaces
 {
@@ -80,5 +83,17 @@ namespace ShoppingListServer.Services.Interfaces
         /// </summary>
         /// <param name="fcmToken"></param>
         void RegisterFcmToken(string currentUserId, string fcmToken);
+
+        void AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info);
+        
+        void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO transformation);
+        
+        bool RemoveProfilePicture(string currentUserId);
+
+        ImageInfo GetProfilePictureInfo(string userId);
+
+        Task<byte[]> GetProfilePicture(string userId);
+
+        List<UserPictureLastChangeTimeDTO> GetUserPictureLastChangeTimes(string currentUserId);
     }
 }

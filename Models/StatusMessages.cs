@@ -28,6 +28,7 @@ namespace ShoppingListServer.Models
         public static string CannotAddYourselfAsContact = "Can not add yourself as contact.";
         public static string ContactLinkExpired = "Contact Link expired.";
         public static string ListIsOwnedByBlockedUser = "The list is owner by a blocked user.";
+        public static string NoProfilePictureFound = "No profile picture found.";
 
         public static string ListShareLinkExpired = "The lists share link is expired.";
         public static string ListAlreadyAdded = "The list has already been added.";

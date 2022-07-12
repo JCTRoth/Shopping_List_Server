@@ -71,6 +71,12 @@ namespace ShoppingListServer.Entities
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual List<UserContact> UserContactsOthers { get; set; } = new List<UserContact>();
 
+        /// <summary>
+        /// Stores image transformation and dates when the image was last changed.
+        /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual ImageInfo ProfilePictureInfo { get; set; }
+
         // Does not copy EMailVerificationTokens.
         public User Copy()
         {

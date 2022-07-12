@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Security.Claims;
 using System.Collections.Generic;
 using ShoppingListServer.Logic;
+using Microsoft.AspNetCore.Http;
 
 namespace ShoppingListServer.Controllers
 {
@@ -280,6 +281,117 @@ namespace ShoppingListServer.Controllers
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             _userService.RegisterFcmToken(currentUserId, fcmToken.Item1);
             return Ok();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="file">jpg profile picture</param>
+        /// <param name="jsonString">ImageTransformationDTO</param>
+        /// <returns></returns>
+        [HttpPost("profile_picture")]
+        public IActionResult AddOrUpdateProfilePicture([FromForm] IFormFile file, [FromForm] string jsonString)
+        {
+            try
+            {
+                ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(jsonString.ToString());
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            return BadRequest(new { message = "Not Found" });
+        }
+
+        /// <summary>
+        /// To update only the transformation of the picture and not the image file itself.
+        /// </summary>
+        /// <param name="jsonBody">ImageTransformationDTO</param>
+        /// <returns></returns>
+        [HttpPost("profile_picture_transformation")]
+        public IActionResult UpdateProfilePictureTransformation([FromBody] object jsonBody)
+        {
+            try
+            {
+                ImageTransformationDTO transformation = JsonConvert.DeserializeObject<ImageTransformationDTO>(jsonBody.ToString());
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                _userService.UpdateProfilePictureTransformation(currentUserId, transformation);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            return BadRequest(new { message = "Not Found" });
+        }
+
+        [HttpDelete("profile_picture")]
+        public IActionResult RemoveProfilePicture()
+        {
+            try
+            {
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                _userService.RemoveProfilePicture(currentUserId);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            return BadRequest(new { message = "Not Found" });
+        }
+
+        /// <summary>
+        /// Returns last change times of all the profile pictures of users that this user can be associated with.
+        /// Associated users are those that are in the contacts list and that appear in shared lists.
+        /// </summary>
+        /// <returns>List<UserPictureLastChangeTimeDTO></returns>
+        [Authorize(Roles = Role.User)]
+        [HttpGet("profile_picture_lastchange")]
+        public IActionResult GetProfilePictureLastChangeTimes()
+        {
+            try
+            {
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                List<UserPictureLastChangeTimeDTO> lastChangeTimes = _userService.GetUserPictureLastChangeTimes(currentUserId);
+                if (lastChangeTimes != null)
+                {
+                    return Ok(lastChangeTimes);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            return BadRequest(new { message = "Not Found" });
+        }
+
+        /// <summary>
+        /// Returns <see cref="User.ProfilePictureInfo"/> of the profile picture of the given user.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <returns>ImageInfo</returns>
+        [Authorize(Roles = Role.User)]
+        [HttpGet("profile_picture_info/{userId}")]
+        public IActionResult GetProfilePictureInfo(string userId)
+        {
+            return Ok(_userService.GetProfilePictureInfo(userId));
+        }
+
+        /// <summary>
+        /// Returns the profile picture of target user.
+        /// </summary>
+        /// <param name="userId">target user</param>
+        /// <returns>byte[]</returns>
+        [Authorize(Roles = Role.User)]
+        [HttpGet("profile_picture/{userId}")]
+        public async Task<IActionResult> GetProfilePicture(string userId)
+        {
+            byte[] bytes = await _userService.GetProfilePicture(userId);
+            return File(bytes, "image/jpeg");
         }
 
     }
