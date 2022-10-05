@@ -290,13 +290,13 @@ namespace ShoppingListServer.Controllers
         /// <param name="jsonString">ImageTransformationDTO</param>
         /// <returns></returns>
         [HttpPost("profile_picture")]
-        public IActionResult AddOrUpdateProfilePicture([FromForm] IFormFile file, [FromForm] string jsonString)
+        public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] IFormFile file, [FromForm] string jsonString)
         {
             try
             {
                 ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(jsonString.ToString());
                 var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
+                await _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
                 return Ok();
             }
             catch (Exception ex)

@@ -450,7 +450,7 @@ namespace ShoppingListServer.Services
                 throw new EMailInUseException(eMail);
         }
 
-        public void AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info)
+        public async Task<bool> AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info)
         {
             try
             {
@@ -469,13 +469,17 @@ namespace ShoppingListServer.Services
 
                 // Copy file.
                 string filePath = GetProfilePicturePath(currentUserId);
-                var stream = new FileStream(filePath, FileMode.Create);
-                picture.CopyToAsync(stream);
+                using (FileStream stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await picture.CopyToAsync(stream);
+                }
             }
             catch (Exception ex)
             {
                 Console.Write(ex.ToString());
+                return false;
             }
+            return true;
         }
 
         public void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO trans)
