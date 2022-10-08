@@ -245,7 +245,7 @@ namespace ShoppingListServer.Services
             return user;
         }
 
-        public async Task AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate)
+        public async Task<bool> AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate)
         {
             targetUser = FindUser(targetUser);
 
@@ -275,6 +275,7 @@ namespace ShoppingListServer.Services
                 await _userHub.SendContactAdded(currentUserId, targetUser);
             }
             _db.SaveChanges();
+            return true;
         }
 
         public bool RemoveContact(string currentUserId, User targetUser)
@@ -452,32 +453,24 @@ namespace ShoppingListServer.Services
 
         public async Task<bool> AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info)
         {
-            try
+            User user = FindUser(currentUserId, null);
+
+            // Update database.
+            //DateTime lastChange = DateTime.Now;
+            if (user.ProfilePictureInfo == null)
             {
-                User user = FindUser(currentUserId, null);
-
-                // Update database.
-                //DateTime lastChange = DateTime.Now;
-                if (user.ProfilePictureInfo == null)
-                {
-                    user.ProfilePictureInfo = new ImageInfo();
-                }
-                user.ProfilePictureInfo.ApplyChanges(info);
-                //user.ProfilePictureInfo.LastChangeTransformationTime = lastChange;
-                //user.ProfilePictureInfo.LastChangeImageFileTime = lastChange;
-                _db.SaveChanges();
-
-                // Copy file.
-                string filePath = GetProfilePicturePath(currentUserId);
-                using (FileStream stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await picture.CopyToAsync(stream);
-                }
+                user.ProfilePictureInfo = new ImageInfo();
             }
-            catch (Exception ex)
+            user.ProfilePictureInfo.ApplyChanges(info);
+            //user.ProfilePictureInfo.LastChangeTransformationTime = lastChange;
+            //user.ProfilePictureInfo.LastChangeImageFileTime = lastChange;
+            _db.SaveChanges();
+
+            // Copy file.
+            string filePath = GetProfilePicturePath(currentUserId);
+            using (FileStream stream = new FileStream(filePath, FileMode.Create))
             {
-                Console.Write(ex.ToString());
-                return false;
+                await picture.CopyToAsync(stream);
             }
             return true;
         }

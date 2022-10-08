@@ -176,18 +176,19 @@ namespace ShoppingListServer.Controllers
         }
 
         [HttpPost("contact")]
-        public IActionResult AddContact([FromBody] object jsonBody)
+        public async Task<IActionResult> AddContact([FromBody] object jsonBody)
         {
             UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
-            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, false);
+            await _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, false);
+            Console.WriteLine("added contact");
             return Ok();
         }
 
         [HttpPatch("contact")]
-        public IActionResult UpdateContact([FromBody] object jsonBody)
+        public async Task<IActionResult> UpdateContact([FromBody] object jsonBody)
         {
             UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
-            _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, true);
+            await _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, true);
             return Ok();
         }
 
@@ -292,18 +293,10 @@ namespace ShoppingListServer.Controllers
         [HttpPost("profile_picture")]
         public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] IFormFile file, [FromForm] string jsonString)
         {
-            try
-            {
-                ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(jsonString.ToString());
-                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                await _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-            return BadRequest(new { message = "Not Found" });
+            ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(jsonString.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            await _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
+            return Ok();
         }
 
         /// <summary>
@@ -314,34 +307,18 @@ namespace ShoppingListServer.Controllers
         [HttpPost("profile_picture_transformation")]
         public IActionResult UpdateProfilePictureTransformation([FromBody] object jsonBody)
         {
-            try
-            {
-                ImageTransformationDTO transformation = JsonConvert.DeserializeObject<ImageTransformationDTO>(jsonBody.ToString());
-                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                _userService.UpdateProfilePictureTransformation(currentUserId, transformation);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-            return BadRequest(new { message = "Not Found" });
+            ImageTransformationDTO transformation = JsonConvert.DeserializeObject<ImageTransformationDTO>(jsonBody.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _userService.UpdateProfilePictureTransformation(currentUserId, transformation);
+            return Ok();
         }
 
         [HttpDelete("profile_picture")]
         public IActionResult RemoveProfilePicture()
         {
-            try
-            {
-                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                _userService.RemoveProfilePicture(currentUserId);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-            return BadRequest(new { message = "Not Found" });
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _userService.RemoveProfilePicture(currentUserId);
+            return Ok();
         }
 
         /// <summary>
@@ -353,18 +330,11 @@ namespace ShoppingListServer.Controllers
         [HttpGet("profile_picture_lastchange")]
         public IActionResult GetProfilePictureLastChangeTimes()
         {
-            try
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            List<UserPictureLastChangeTimeDTO> lastChangeTimes = _userService.GetUserPictureLastChangeTimes(currentUserId);
+            if (lastChangeTimes != null)
             {
-                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                List<UserPictureLastChangeTimeDTO> lastChangeTimes = _userService.GetUserPictureLastChangeTimes(currentUserId);
-                if (lastChangeTimes != null)
-                {
-                    return Ok(lastChangeTimes);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
+                return Ok(lastChangeTimes);
             }
             return BadRequest(new { message = "Not Found" });
         }

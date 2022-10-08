@@ -37,7 +37,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// Adds or updates targetUser as contact to the contacts list of current user.
         /// </summary>
         /// <param name="allowUpdate">Allows update of contact type if the contact already exists. If false, throws an exception in that case.</param>
-        Task AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate);
+        Task<bool> AddOrUpdateContact(string currentUserId, User targetUser, UserContactType type, bool allowUpdate);
 
         bool RemoveContact(string currentUserId, User targetUser);
         /// <summary>
