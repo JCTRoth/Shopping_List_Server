@@ -167,11 +167,10 @@ namespace ShoppingListServer
                 var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
                 var exception = exceptionHandlerPathFeature.Error;
 
-                var result = JsonConvert.SerializeObject(new { error = exception.Message });
                 // Setting the reason phrase: https://stackoverflow.com/a/42039124
                 context.Response.HttpContext.Features.Get<IHttpResponseFeature>().ReasonPhrase = exception.Message;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(result);
+                await context.Response.WriteAsync(exception.Message);
             }));
 
             // Handle all other non cached exceptions
@@ -231,7 +230,7 @@ namespace ShoppingListServer
 
         private void Unhandled_Exceptions(object sender, UnhandledExceptionEventArgs e)
         {
-            Console.WriteLine((e.ExceptionObject as Exception).Message, "Unhandled Exception");
+            // Console.WriteLine("Unhandled Exception:" + (e.ExceptionObject as Exception).Message);
         }
     }
 }

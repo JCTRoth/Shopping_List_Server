@@ -11,7 +11,6 @@ namespace ShoppingListServer.Exceptions
         public ItemNotFoundException(string ex_string) :
             base(StatusMessages.ItemNotFound)
         {
-            Console.Error.WriteLine("UserNotFoundException " + ex_string + "\n" + StackTrace);
         }
 
     }

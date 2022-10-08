@@ -13,7 +13,6 @@ namespace ShoppingListServer.Exceptions
             : base(StatusMessages.EMailInvalid)
         {
             EMail = eMail;
-            Console.WriteLine("EMailInvalidException " + Message + " " + eMail + "\n" + StackTrace);
         }
     }
 }

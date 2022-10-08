@@ -15,7 +15,6 @@ namespace ShoppingListServer.Exceptions
             : base(StatusMessages.PasswordIncorrect)
         {
             User = user;
-            Console.WriteLine("PasswordIncorrectException: " + User.EMail + "\n" + StackTrace);
         }
     }
 }

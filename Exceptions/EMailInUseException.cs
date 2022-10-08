@@ -14,7 +14,6 @@ namespace ShoppingListServer.Exceptions
             base(StatusMessages.EMailInUse)
         {
             EMail = eMail;
-            Console.Error.WriteLine("EMailInUserException " + Message + " : " + eMail + "\n" + StackTrace);
         }
     }
 }
