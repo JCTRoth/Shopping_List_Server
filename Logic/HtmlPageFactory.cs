@@ -17,7 +17,8 @@ namespace ShoppingListServer.Logic
             message.SubjectEncoding = System.Text.Encoding.UTF8;
             // Avoid MIME_HTML_ONLY to drop the spam score
             message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(htmlBody, Encoding.UTF8, "text/html"));
-            message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString("Please use a html reader to read this E-Mail", null, "text/plain"));
+            // Some e-mail clients (e.g. the ios / macos default one) use this view as preferred one so don't send it.
+            //message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(htmlBody, Encoding.UTF8, "text/plain"));
             //message.BodyEncoding = System.Text.Encoding.UTF8;
             //message.IsBodyHtml = true;
             return message;
