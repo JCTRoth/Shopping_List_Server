@@ -20,6 +20,11 @@ namespace ShoppingListServer.Entities
         public string LastName { get; set; }
         [Unicode(true)]
         public string Username { get; set; }
+        /// <summary>
+        /// An Id that is set by some external source, like when using
+        /// sign-in with apple, google, or facebook
+        /// </summary>
+        public string ExternalId { get; set; }
         // User Color.ToArgb() and Color.FromArgb(Color) to work with this.
         public System.Int32? ColorArgb { get; set; }
         // Method to access ColorArgb as a System.Drawing.Color
@@ -48,6 +53,9 @@ namespace ShoppingListServer.Entities
         public string FcmToken { get; set; }
 
         public bool IsVerified { get; set; } = false;
+
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<PasswordAccess> AlternativePasswords { get; set; } = new List<PasswordAccess>();
 
         /// <summary>
         /// Id that can be used to share this user with other users so that both are adding each other as contacs.

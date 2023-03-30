@@ -22,10 +22,15 @@ services:
       context: .
       dockerfile: ./Dockerfile
     volumes: # mount the ssl certificate files folder in the docker image
+        - "/etc/timezone:/etc/timezone:ro"
+        - "/etc/localtime:/etc/localtime:ro"
         - shoppingdata:/app/data # must be the same folder name as DataStorageFolder (appsettings.json)
         - type: bind
           source: /etc/letsencrypt/kestrel/ # this folder contains the certificat files
           target: /app/cert-files/
+        - type: bind
+          source: /etc/letsencrypt/apple-keys/ # this folder contains apple keys
+          target: /app/apple-keys/
     ports:
       - 5678:5678
 

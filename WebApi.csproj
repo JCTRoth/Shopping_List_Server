@@ -31,10 +31,15 @@
   <ItemGroup>
     <None Remove="Microsoft.AspNetCore.SignalR.Core" />
     <None Remove="Microsoft.AspNetCore.All" />
+    <None Remove="files\AuthKey_488JJZA452.p8" />
+    <None Remove="Files\AuthKey_HQW3PG254R.p8" />
   </ItemGroup>
   <ItemGroup> 
     <Content Include="wwwroot\.well-known\**"> 
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> 
     </Content> 
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Files\AuthKey_HQW3PG254R.p8" />
   </ItemGroup>
 </Project>

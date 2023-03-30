@@ -16,5 +16,11 @@ namespace ShoppingListServer.Helpers
         public string DbPassword { get; set; }
         public string UseHttpsRedirect { get; set; }
         public string UseDocker { get; set; }
+        public string FacebookAppID { get; set; }
+        public string AppleClientID { get; set; }
+        public string AppleSignInKeyId { get; set; }
+        public string AppleTeamId { get; set; }
+        public string AppleSignInP8SecretResourcePath { get; set; }
+        public string AppleSignInP8SecretPath { get; set; }
     }
 }

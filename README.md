@@ -163,3 +163,6 @@ After changing the file:
 ```
 sudo service nginx reload
 ```
+
+We redirect the calls to https://shopping-now.net/shopping, https://shopping-now.net/users, and https://shopping-now.net/.well-known to the docker container.
+This can be found in the nginx configuration file

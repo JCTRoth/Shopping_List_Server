@@ -29,17 +29,23 @@ namespace ShoppingListServer.Services
         private readonly AppDb _db;
         private readonly IUserHub _userHub;
         private readonly IFilesystemService _filesystemService;
+        private readonly IAuthenticationService _authenticationService;
+        private readonly IEMailVerificationService _emailVerificationService;
 
         public UserService(
             IOptions<AppSettings> appSettings,
             AppDb db,
             IUserHub userHub,
-            IFilesystemService filesystemService)
+            IFilesystemService filesystemService,
+            IAuthenticationService authenticationService,
+            IEMailVerificationService emailVerificationService)
         {
             _appSettings = appSettings.Value;
             _db = db;
             _userHub = userHub;
             _filesystemService = filesystemService;
+            _authenticationService = authenticationService;
+            _emailVerificationService = emailVerificationService;
         }
 
         /// <summary>
@@ -52,15 +58,24 @@ namespace ShoppingListServer.Services
         /// <returns>If succesfull (usually only not succesfull if there is already a user with that id)</returns>
         public bool AddUser(User new_user, string password)
         {
+            return AddUser(new_user, password, false);
+        }
+
+        private bool AddUser(User new_user, string password, bool isAlternativePassword)
+        {
             // Check if the given email is valid (formating / no illegal hosts).
             // The email has to be set (can not be null or empty).
             CheckIfEMailValidException(new_user.EMail);
 
             // Check if E-Mail already taken and if so, throw exception.
-            CheckIfEMailAlreadyInUseException(new_user.EMail);
+            if (!isAlternativePassword)
+            {
+                CheckIfEMailAlreadyInUseException(new_user.EMail);
+            }
 
             // Check if user in list
             // ID
+            new_user.Id = Guid.NewGuid().ToString();
             bool id = _db.Users.Any(user => user.Id == new_user.Id);
 
             if (id)
@@ -72,14 +87,96 @@ namespace ShoppingListServer.Services
             // Add User to list
             if (_filesystemService.CreateUserFolder(new_user.Id))
             {
-                HashUserPassword(new_user, password);
-
+                if (isAlternativePassword)
+                {
+                    AddAlternativeHashedPassword(new_user, password);
+                }
+                else
+                {
+                    AddUserPassword(new_user, password);
+                }
                 _db.Users.Add(new_user);
                 _db.SaveChanges();
                 return true;
             }
 
             return false;
+        }
+
+        private bool AddUserOrAlternativePassword(User new_user, string password)
+        {
+            User user = FindUserTryExternalIdFirst(new_user, false);
+            bool success;
+            if (user != null)
+            {
+                new_user.Id = user.Id;
+                if (!string.IsNullOrEmpty(new_user.ExternalId))
+                    user.ExternalId = new_user.ExternalId;
+                success = AddAlternativeHashedPassword(user, password);
+            }
+            else
+            {
+                success = AddUser(new_user, password, true);
+            }
+            return success;
+        }
+
+        private User AddSocialMediaVerifiedUser(User new_user, string password)
+        {
+            AddUserOrAlternativePassword(new_user, password);
+            User user = FindUserTryExternalIdFirst(new_user);
+            // User is verified via access token which is done in the *WithException call above.
+            if (user != null)
+            {
+                user.IsVerified = true;
+                _db.SaveChanges();
+            }
+            return user;
+        }
+
+        public async Task<User> RegisterAppleUser(AppleAccount appleAccount, string password)
+        {
+            // verify access token
+            await _authenticationService.AuthenticateAppleWithException(appleAccount);
+
+            // Add user or alternative password.
+            User new_user = new User
+            {
+                EMail = appleAccount.Email,
+                Username = appleAccount.Name,
+                ExternalId = appleAccount.UserId
+            };
+            return AddSocialMediaVerifiedUser(new_user, password);
+        }
+
+        public async Task<User> RegisterGoogleUser(GoogleUser googleUser, string accessToken, string password)
+        {
+            // verify access token
+            await _authenticationService.AuthenticateGoogleWithException(googleUser, accessToken);
+
+            // Add user or alternative password.
+            User new_user = new User
+            {
+                EMail = googleUser.Email,
+                Username = googleUser.Name,
+                ExternalId = googleUser.Id
+            };
+            return AddSocialMediaVerifiedUser(new_user, password);
+        }
+
+        public async Task<User> RegisterFacebookUser(FacebookProfile facebookProfile, string accessToken, string password)
+        {
+            // verify access token
+            await _authenticationService.AuthenticateFacebookWithException(facebookProfile, accessToken);
+
+            // Add user or alternative password.
+            User new_user = new User
+            {
+                EMail = facebookProfile.Email,
+                Username = facebookProfile.FirstName,
+                ExternalId = facebookProfile.Id
+            };
+            return AddSocialMediaVerifiedUser(new_user, password);
         }
 
         // Authenticates the user.
@@ -132,13 +229,33 @@ namespace ShoppingListServer.Services
         private User FindUser_EMail(string email)
         {
             User user = null;
-
             if (!string.IsNullOrEmpty(email))
             {
                 user = _db.Users.SingleOrDefault(x => x.EMail == email);
 
             }
             return user;
+        }
+
+        private User FindUser_ExternalId(string externalId)
+        {
+            User user = null;
+            if (!string.IsNullOrEmpty(externalId))
+            {
+                user = _db.Users.SingleOrDefault(x => x.ExternalId == externalId);
+
+            }
+            return user;
+        }
+
+        private User FindUserTryExternalIdFirst(User user, bool throwException = true)
+        {
+            User foundUser = FindUser_ExternalId(user.ExternalId);
+            if (foundUser == null)
+            {
+                foundUser = FindUser(user, throwException);
+            }
+            return foundUser;
         }
 
         /// <summary>
@@ -148,9 +265,9 @@ namespace ShoppingListServer.Services
         /// If either is not null and the search fails, a UserNotFoundException is thrown.
         /// </summary>
         /// <returns>The found user</returns>
-        public User FindUser(User user)
+        public User FindUser(User user, bool throwException = true)
         {
-            return FindUser(user.Id, user.EMail);
+            return FindUser(user.Id, user.EMail, throwException);
         }
 
         /// <summary>
@@ -161,19 +278,19 @@ namespace ShoppingListServer.Services
         /// </summary>
         /// <exception cref="UserNotFoundException">If the user could not be found.</exception>
         /// <returns>The found user</returns>
-        public User FindUser(string id, string email)
+        public User FindUser(string id, string email, bool throwException = true)
         {
             User returnUser = null;
             if (!string.IsNullOrEmpty(id))
             {
                 returnUser = FindUser_ID(id);
-                if (returnUser == null)
+                if (throwException && returnUser == null)
                     throw new UserNotFoundException(id);
             }
             else if (!string.IsNullOrEmpty(email))
             {
                 returnUser = FindUser_EMail(email);
-                if (returnUser == null)
+                if (throwException && returnUser == null)
                     throw new UserNotFoundException(email);
             }
             return returnUser;
@@ -223,7 +340,7 @@ namespace ShoppingListServer.Services
         public bool UpdateUserPassword(string currentUserId, string password)
         {
             User currentUser = GetById(currentUserId);
-            HashUserPassword(currentUser, password);
+            AddUserPassword(currentUser, password);
             _db.SaveChanges();
             return true;
         }
@@ -312,14 +429,24 @@ namespace ShoppingListServer.Services
             _db.SaveChanges();
         }
 
-        // Checks if the users password hash matches with the given clear text passwords hash.
-        // \param password - clear text password
+        /// <summary>
+        /// Checks if the users password or any of the alternative passwords
+        /// matches with the given clear text passwords hash.
+        /// <param name="user"></param>
+        /// <param name="password">clear text password</param>
+        /// <returns>If the password matches</returns>
         private bool IsUserPasswordValid(User user, string password)
         {
-            if (password == null || user.Salt == null)
-                return false;
-            string passwordHash = HashString(user.Salt, password);
-            return user.PasswordHash.Equals(passwordHash);
+            if (PasswordAccess.IsPasswordValid(user.Salt, user.PasswordHash, password))
+                return true;
+            foreach (PasswordAccess access in user.AlternativePasswords)
+            {
+                if (PasswordAccess.IsPasswordValid(access.Salt, access.PasswordHash, password))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void CheckUserPasswordValidException(User user, string password)
@@ -330,29 +457,33 @@ namespace ShoppingListServer.Services
 
         // Hashes the given password and stores the hash along with its salt in the database.
         // Later, user IsUserPasswordValid to check the validity of the password.
-        public void HashUserPassword(User user, string password)
+        public void AddUserPassword(User user, string password)
         {
-            // Salt length of 128 bit is recommended by the US National Institute of Standards and Technology, see https://en.wikipedia.org/wiki/PBKDF2
-            user.Salt = new byte[16];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(user.Salt);
-            }
-
-            user.PasswordHash = HashString(user.Salt, password);
+            PasswordAccess passwordAccess = PasswordAccess.Generate(password);
+            user.Salt = passwordAccess.Salt;
+            user.PasswordHash = passwordAccess.PasswordHash;
         }
 
-        // Hash the given string using PBKDF2 with SHA​-512 and a recommended 128 bit (16 byte) long salt.
-        private string HashString(byte[] salt, string value)
+        private bool AddAlternativeHashedPassword(User user, string password)
         {
-            // 32 bytes requested is sufficient for password hashing, see https://security.stackexchange.com/a/58450
-            // https://docs.microsoft.com/en-us/aspnet/core/security/data-protection/consumer-apis/password-hashing?view=aspnetcore-5.0
-            return Convert.ToBase64String(KeyDerivation.Pbkdf2(
-                password: value,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA512,
-                iterationCount: 10000,
-                numBytesRequested: 32));
+            // check if password already exists
+            //if (IsUserPasswordValid(user, password))
+            //{
+            //    return false;
+            //}
+            //foreach (PasswordAccess access in user.AlternativePasswords)
+            //{
+            //    if (PasswordAccess.IsPasswordValid(access.Salt, access.PasswordHash, password))
+            //    {
+            //        return false;
+            //    }
+            //}
+
+            PasswordAccess passwordAccess = PasswordAccess.Generate(password);
+            user.AlternativePasswords.Add(passwordAccess);
+            _db.SaveChanges();
+
+            return true;
         }
 
         public string GenerateOrExtendContactShareId(string currentUserId)

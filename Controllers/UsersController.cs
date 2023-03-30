@@ -12,6 +12,7 @@ using System.Security.Claims;
 using System.Collections.Generic;
 using ShoppingListServer.Logic;
 using Microsoft.AspNetCore.Http;
+using System.Net.Http;
 
 namespace ShoppingListServer.Controllers
 {
@@ -22,14 +23,17 @@ namespace ShoppingListServer.Controllers
     {
         protected IUserService _userService;
         protected IEMailVerificationService _emailVerificationService;
+        protected IAuthenticationService _authenticationService;
 
         public UsersController(
             IUserService userService,
             IEMailVerificationService emailVerificationService,
-            IResetPasswordService resetPasswordService)
+            IResetPasswordService resetPasswordService,
+            IAuthenticationService authenticationService)
         {
             _userService = userService;
             _emailVerificationService = emailVerificationService;
+            _authenticationService = authenticationService;
         }
 
         // Is used to check if the server is reachable.
@@ -61,14 +65,14 @@ namespace ShoppingListServer.Controllers
 
             User new_user = new User
             {
-                Id = Guid.NewGuid().ToString(),
                 EMail = registerRequest.EMail,
                 FirstName = registerRequest.FirstName,
                 LastName = registerRequest.LastName,
                 Username = registerRequest.Username
             };
 
-            if (_userService.AddUser(new_user, registerRequest.Password))
+            bool success = _userService.AddUser(new_user, registerRequest.Password);
+            if (success)
             {
                 await _emailVerificationService.SendEMailVerificationCodeAndAddToken(new_user.Id);
                 return Ok(new_user);
@@ -78,6 +82,64 @@ namespace ShoppingListServer.Controllers
                 return BadRequest(new { message = "Not registered" });
             };
 
+        }
+
+        [AllowAnonymous]
+        [HttpPost("register_apple")]
+        public async Task<IActionResult> RegisterApple([FromBody] object json)
+        {
+            Tuple<AppleAccount, string> tuple = JsonConvert.DeserializeObject<Tuple<AppleAccount, string>>(json.ToString());
+            AppleAccount appleAccount = tuple.Item1;
+            string password = tuple.Item2;
+            User user = await _userService.RegisterAppleUser(appleAccount, password);
+            if (user != null)
+            {
+                return Ok(user.WithoutPassword());
+            }
+            return BadRequest(new { message = "Something went wrong." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("register_google")]
+        public async Task<IActionResult> RegisterGoogle([FromBody] object json)
+        {
+            Tuple<GoogleUser, string, string> tuple = JsonConvert.DeserializeObject<Tuple<GoogleUser, string, string>>(json.ToString());
+            GoogleUser googleUser = tuple.Item1;
+            string accessToken = tuple.Item2;
+            string password = tuple.Item3;
+
+            User user = await _userService.RegisterGoogleUser(googleUser, accessToken, password);
+            if (user != null)
+            {
+                return Ok(user.WithoutPassword());
+            }
+            return BadRequest(new { message = "Something went wrong." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("register_facebook")]
+        public async Task<IActionResult> RegisterFacebook([FromBody] object json)
+        {
+            Tuple<FacebookProfile, string, string> tuple = JsonConvert.DeserializeObject<Tuple<FacebookProfile, string, string>>(json.ToString());
+            FacebookProfile facebookProfile = tuple.Item1;
+            string accessToken = tuple.Item2;
+            string password = tuple.Item3;
+            // verify access token whith this link:
+            // https://graph.facebook.com/debug_token?input_token=EAAHOgab9jbkBAOZAmqu8ekE0y1VZBGFbfsWHBZCOZAW8fo6mAWIkR8uJmAgo4LXn69ImOeURBhZAzYDT4bYyuNqQegOkF3wA2k1JXZBbGghD3ZBDXrt3sqdyDRx6UjeJBa5XuT1qYiSHJXjYZA4oLLUdZBObGwWz3lHEEg9caUxItzZBcZAy52fCCjhid0pR3rDUOutHtp0Ppi0QgkJO9EYni2Ff0pyJwgpqtxAGuYTwWRFDj2YKZAAChP8BEjKXyfZBwKZC0ZD&access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
+            // https://graph.facebook.com/debug_token?input_token=<user-token>&access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
+            // verify that user exists
+            // https://graph.facebook.com/me?access_token=EAAHOgab9jbkBAOZAmqu8ekE0y1VZBGFbfsWHBZCOZAW8fo6mAWIkR8uJmAgo4LXn69ImOeURBhZAzYDT4bYyuNqQegOkF3wA2k1JXZBbGghD3ZBDXrt3sqdyDRx6UjeJBa5XuT1qYiSHJXjYZA4oLLUdZBObGwWz3lHEEg9caUxItzZBcZAy52fCCjhid0pR3rDUOutHtp0Ppi0QgkJO9EYni2Ff0pyJwgpqtxAGuYTwWRFDj2YKZAAChP8BEjKXyfZBwKZC0ZD
+
+            // access_token=508531224448441
+            // graph.facebook.com/debug_token?input_token={token-to-inspect}&access_token={app-token-or-admin-token}
+            // https://graph.facebook.com/113716804852420?access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
+
+            User user = await _userService.RegisterFacebookUser(facebookProfile, accessToken, password);
+            if (user != null)
+            {
+                return Ok(user.WithoutPassword());
+            }
+            return BadRequest(new { message = "Something went wrong." });
         }
 
         /*

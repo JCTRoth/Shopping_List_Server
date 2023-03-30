@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "GRUP2R22W3.GenericListApp.iOS.app",
+        "paths": [ "/users/*", "/shopping/*" ]
+      }
+    ]
+  }
+}

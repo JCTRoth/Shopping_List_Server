@@ -142,7 +142,7 @@ namespace ShoppingListServer.Services
                 if (DateTime.UtcNow > token.ExpirationTime)
                     throw new Exception(StatusMessages.PasswordResetCodeExpired);
 
-                _userService.HashUserPassword(token.User, newPassword);
+                _userService.AddUserPassword(token.User, newPassword);
                 token.User.ResetPasswordTokens.Clear();
                 _db.SaveChanges();
             }

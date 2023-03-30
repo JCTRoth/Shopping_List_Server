@@ -103,6 +103,7 @@ namespace ShoppingListServer
             services.AddScoped<IFilesystemService, FilesystemService>();
             services.AddScoped<IShoppingListStorageService, ShoppingListStorageSevice>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IRestService, RestService>();
             services.AddScoped<IEMailVerificationService, EMailVerificationService>();
             services.AddScoped<IResetPasswordService, ResetPasswordService>();
             services.AddScoped<IShoppingService, ShoppingService>();
@@ -110,6 +111,7 @@ namespace ShoppingListServer
             services.AddTransient<IUserHub, UserHubService>();
             services.AddTransient<IShoppingHub, ShoppingHubService>();
             services.AddTransient<IPushNotificationService, PushNotificationService>();
+            services.AddTransient<IAuthenticationService, AuthenticationService>();
 
             //_serviceProvider = services.BuildServiceProvider();
 
@@ -206,10 +208,18 @@ namespace ShoppingListServer
             app.UseHsts();
 #endif
 
-            FirebaseApp.Create(new AppOptions()
+            try
             {
-                Credential = GoogleCredential.GetApplicationDefault(),
-            });
+                FirebaseApp.Create(new AppOptions()
+                {
+                    Credential = GoogleCredential.GetApplicationDefault(),
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: Failed to initialize Firebase.\n" + ex.StackTrace);
+            }
+            
 
 
             // SignalR/Websockets

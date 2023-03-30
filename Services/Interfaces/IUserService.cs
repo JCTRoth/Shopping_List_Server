@@ -11,9 +11,14 @@ namespace ShoppingListServer.Services.Interfaces
     public interface IUserService
     {
         bool AddUser(User new_user, string password);
+
+        Task<User> RegisterGoogleUser(GoogleUser googleUser, string accessToken, string password);
+        Task<User> RegisterFacebookUser(FacebookProfile facebookProfile, string accessToken, string password);
+        Task<User> RegisterAppleUser(AppleAccount appleAccount, string password);
+
         Result Authenticate(string id, string email, string password);
-        User FindUser(User user);
-        User FindUser(string id, string email);
+        User FindUser(User user, bool throwException = true);
+        User FindUser(string id, string email, bool throwException = true);
 
         // Changing the email requires a new email verification.
         // To not change a field, just set it null.
@@ -46,7 +51,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// </summary>
         /// <param name="user">User for which a password is stored.</param>
         /// <param name="password">cleartext password</param>
-        void HashUserPassword(User user, string password);
+        void AddUserPassword(User user, string password);
 
         /// <summary>
         /// Generates a token of the new user share id. The user share id can be used by someone

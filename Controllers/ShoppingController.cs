@@ -255,11 +255,10 @@ namespace ShoppingListServer.Controllers
                 JsonConvert.DeserializeObject<Tuple<string, string, string>>(listPermission.ToString());
 
             string thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            string targetUserEMail = tupel.Item1;
-            User user = _userService.GetByEMail(targetUserEMail);
+            string targetUserId = tupel.Item1;
+            User user = _userService.GetById(targetUserId);
             if (user != null)
             {
-                string targetUserId = _userService.GetByEMail(targetUserEMail).Id;
                 string shoppingListId = tupel.Item2;
                 ShoppingListPermissionType permission =
                     (ShoppingListPermissionType)Enum.Parse(typeof(ShoppingListPermissionType), tupel.Item3, true);
@@ -272,12 +271,11 @@ namespace ShoppingListServer.Controllers
         }
 
         [Authorize(Roles = Role.User)]
-        [HttpDelete("listpermission/{listId}/{userEMail}")]
-        public async Task<IActionResult> RemoveListPermission(string listId, string userEMail)
+        [HttpDelete("listpermission/{listId}/{userId}")]
+        public async Task<IActionResult> RemoveListPermission(string listId, string userId)
         {
             string thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            string targetUserId = _userService.GetByEMail(userEMail).Id;
-            bool success = await _shoppingService.RemoveListPermission(thisUserId, targetUserId, listId);
+            bool success = await _shoppingService.RemoveListPermission(thisUserId, userId, listId);
             if (success)
                 return Ok();
             else

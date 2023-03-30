@@ -29,6 +29,7 @@ namespace ShoppingListServer.Models
         public static string ContactLinkExpired = "Contact Link expired.";
         public static string ListIsOwnedByBlockedUser = "The list is owner by a blocked user.";
         public static string NoProfilePictureFound = "No profile picture found.";
+        public static string AccountAuthenticationFailed = "Failed to authenticate account.";
 
         public static string ListShareLinkExpired = "The lists share link is expired.";
         public static string ListAlreadyAdded = "The list has already been added.";
