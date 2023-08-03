@@ -284,15 +284,13 @@ namespace ShoppingListServer.Services
             if (!string.IsNullOrEmpty(id))
             {
                 returnUser = FindUser_ID(id);
-                if (throwException && returnUser == null)
-                    throw new UserNotFoundException(id);
             }
-            else if (!string.IsNullOrEmpty(email))
+            if (returnUser == null && !string.IsNullOrEmpty(email))
             {
                 returnUser = FindUser_EMail(email);
-                if (throwException && returnUser == null)
-                    throw new UserNotFoundException(email);
             }
+            if (throwException && returnUser == null)
+                throw new UserNotFoundException(id);
             return returnUser;
         }
 
@@ -424,8 +422,14 @@ namespace ShoppingListServer.Services
         public void RegisterFcmToken(string currentUserId, string fcmToken)
         {
             User user = FindUser(currentUserId, null);
-            user.FcmToken = fcmToken;
-            Console.WriteLine("fcm token registered " + fcmToken);
+            user.FcmTokens.Add(new FcmToken() { Token = fcmToken });
+            _db.SaveChanges();
+        }
+
+        public void UnregisterFcmToken(string currentUserId, string fcmToken)
+        {
+            User user = FindUser(currentUserId, null);
+            user.FcmTokens.RemoveAll(x => x.Token == fcmToken);
             _db.SaveChanges();
         }
 

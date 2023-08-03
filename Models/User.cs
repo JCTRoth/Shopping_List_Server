@@ -50,7 +50,8 @@ namespace ShoppingListServer.Entities
         /// <summary>
         /// Firebase Clout Messaging token. Is used to send notifications to clients.
         /// </summary>
-        public string FcmToken { get; set; }
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<FcmToken> FcmTokens { get; set; } = new List<FcmToken>();
 
         public bool IsVerified { get; set; } = false;
 

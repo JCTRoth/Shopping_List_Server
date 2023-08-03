@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using ShoppingListServer.Logic;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http;
+using System.Text.Json.Nodes;
 
 namespace ShoppingListServer.Controllers
 {
@@ -330,7 +331,9 @@ namespace ShoppingListServer.Controllers
         }
 
         /// <summary>
-        /// Assigns the given FcmToken to the given user. FcmTokens are used to send push notifications
+        /// Assigns the given FcmToken to the given user. Every user can only have one FcmToken assigned
+        /// meaning that only one device can receive push notifications per user.
+        /// FcmTokens are used to send push notifications
         /// (notifications that reach the client if the app is in background or closed)
         /// to users via Firebase Cloud Messaging.
         /// If a user has no token assigned, they are unable to receive push notifications.
@@ -343,6 +346,15 @@ namespace ShoppingListServer.Controllers
             Tuple<string> fcmToken = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             _userService.RegisterFcmToken(currentUserId, fcmToken.Item1);
+            return Ok();
+        }
+
+        [HttpPost("unregister_fcm_token")]
+        public IActionResult UnregisterFcmToken([FromBody] object jsonBody)
+        {
+            Tuple<string> fcmToken = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _userService.UnregisterFcmToken(currentUserId, fcmToken.Item1);
             return Ok();
         }
 

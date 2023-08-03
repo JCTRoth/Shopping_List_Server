@@ -22,27 +22,26 @@ namespace ShoppingListServer.Services
 
         public async Task SendListAdded(User thisUser, User targetUser, string listId)
         {
-            if (targetUser != null && !string.IsNullOrEmpty(targetUser.FcmToken))
+            if (targetUser != null)
             {
                 string username = thisUser != null ? thisUser.Username : "";
-                await SendListPushNotification(username, listId, targetUser.FcmToken);
+                await SendListPushNotification(username, listId, targetUser.FcmTokens);
             }
         }
 
         public async Task SendListAdded(User thisUser, string listId, ShoppingListPermissionType permission)
         {
-            var fcmTokens = from list in _db.Set<ShoppingList>()
-                            join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
-                            join user in _db.Set<User>() on thisUser.Id equals user.Id
-                            join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
-                            into contactGroup
-                            from contact in contactGroup.DefaultIfEmpty()
-                            where !thisUser.Id.Equals(user.Id) &&
-                                  listId.Equals(list.SyncId) &&
-                                  perm.PermissionType.HasFlag(permission) &&
-                                  !string.IsNullOrEmpty(user.FcmToken) &&
-                                  (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
-                            select user.FcmToken;
+            var fcmTokenLists = from list in _db.Set<ShoppingList>()
+                                join perm in _db.Set<ShoppingListPermission>() on list.SyncId equals perm.ShoppingListId
+                                join user in _db.Set<User>() on thisUser.Id equals user.Id
+                                join contact in _db.Set<UserContact>() on new { X1 = user.Id, X2 = list.Owner.Id } equals new { X1 = contact.UserSourceId, X2 = contact.UserTargetId }
+                                into contactGroup
+                                from contact in contactGroup.DefaultIfEmpty()
+                                where !thisUser.Id.Equals(user.Id) &&
+                                      listId.Equals(list.SyncId) &&
+                                      perm.PermissionType.HasFlag(permission) &&
+                                      (contact == null || list.Owner == null || (contact.UserTargetId.Equals(list.Owner.Id) && contact.UserContactType != UserContactType.Ignored))
+                                select user.FcmTokens;
 
             //var fcmTokens = from l in _db.Set<ShoppingList>()
             //                join perm in _db.Set<ShoppingListPermission>() on l.SyncId equals perm.ShoppingListId
@@ -50,14 +49,23 @@ namespace ShoppingListServer.Services
             //                where !thisUser.Id.Equals(u.Id) && listId.Equals(l.SyncId) && perm.PermissionType.HasFlag(permission) && !string.IsNullOrEmpty(u.FcmToken)
             //                select u.FcmToken;
 
-            foreach (var fcmToken in fcmTokens)
+            foreach (var fcmTokens in fcmTokenLists)
             {
-                await SendListPushNotification(thisUser.Username, listId, fcmToken);
+                await SendListPushNotification(thisUser.Username, listId, fcmTokens);
             }
 
         }
+        private async Task<List<string>> SendListPushNotification(string username, string listId, List<FcmToken> fcmTokens)
+        {
+            List<string> responses = new List<string>();
+            foreach (FcmToken fcmToken in fcmTokens)
+            {
+                responses.Add(await SendListPushNotification(username, listId, fcmToken));
+            }
+            return responses;
+        }
 
-        private async Task<string> SendListPushNotification(string username, string listId, string fcmToken)
+        private async Task<string> SendListPushNotification(string username, string listId, FcmToken fcmToken)
         {
             string title = "ServiceNow";
             string body = string.Format("{0} shared a list with you", username);
@@ -102,7 +110,7 @@ namespace ShoppingListServer.Services
                         Sound = "default"
                     }
                 },
-                Token = fcmToken
+                Token = fcmToken.Token
             };
 
             // Send a message to the device corresponding to the provided fcmToken.

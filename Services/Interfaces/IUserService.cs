@@ -89,6 +89,13 @@ namespace ShoppingListServer.Services.Interfaces
         /// <param name="fcmToken"></param>
         void RegisterFcmToken(string currentUserId, string fcmToken);
 
+        /// <summary>
+        /// Unregisters the FcmToken assigned to this user.
+        /// </summary>
+        /// <param name="currentUserId"></param>
+        /// <param name="fcmToken"></param>
+        void UnregisterFcmToken(string currentUserId, string fcmToken);
+
         Task<bool> AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info);
         
         void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO transformation);
