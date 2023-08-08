@@ -32,6 +32,8 @@ namespace ShoppingListServer.Services.Interfaces
 
         bool UpdateUserPassword(string currentUserId, string password);
 
+        bool DeleteUser(string currentUserid);
+
         IEnumerable<User> GetAll();
 
         User GetById(string id);

@@ -343,6 +343,12 @@ namespace ShoppingListServer.Services
             return true;
         }
 
+        public bool DeleteUser()
+        {
+
+            return true;
+        }
+
         public IEnumerable<User> GetAll()
         {
             return _db.Users.WithoutPasswords();

@@ -175,6 +175,21 @@ namespace ShoppingListServer.Controllers
                 return BadRequest("Something went wrong :(");
         }
 
+        /// <summary>
+        /// Delets the logged in users account.
+        /// </summary>
+        /// <returns></returns>
+        [HttpDelete("user")]
+        public IActionResult DeleteUser()
+        {
+            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            bool success = _userService.DeleteUser(currentUserId);
+            if (success)
+                return Ok();
+            else
+                return BadRequest("Something went wrong.");
+        }
+
         // Update the currently logged ins password. The password will not
         // be stored in clear text but instead in a hashed form using a
         // secure SHA​-512 hashing operation with a random salt.
