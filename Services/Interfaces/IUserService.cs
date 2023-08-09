@@ -32,7 +32,7 @@ namespace ShoppingListServer.Services.Interfaces
 
         bool UpdateUserPassword(string currentUserId, string password);
 
-        bool DeleteUser(string currentUserid);
+        bool RemoveUser(string currentUserId);
 
         IEnumerable<User> GetAll();
 
@@ -99,9 +99,9 @@ namespace ShoppingListServer.Services.Interfaces
         void UnregisterFcmToken(string currentUserId, string fcmToken);
 
         Task<bool> AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info);
-        
+
         void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO transformation);
-        
+
         bool RemoveProfilePicture(string currentUserId);
 
         ImageInfo GetProfilePictureInfo(string userId);

@@ -223,15 +223,20 @@ namespace ShoppingListServer.Services
         public async Task<bool> DeleteListForEveryone(string shoppingListId, string userId)
         {
             ShoppingList listEntity = GetShoppingListEntity(shoppingListId);
-            if (listEntity == null)
-                throw new ShoppingListNotFoundException(shoppingListId);
+            return await DeleteListForEveryone(listEntity, _userService.GetById(userId));
+        }
 
-            CheckPermissionWithException(listEntity, userId, ShoppingListPermissionType.Delete);
-            bool success = DeleteListWithoutChecks(shoppingListId);
+        public async Task<bool> DeleteListForEveryone(ShoppingList listEntity, User thisUser)
+        {
+            if (listEntity == null)
+                throw new ShoppingListNotFoundException(listEntity.SyncId);
+
+            CheckPermissionWithException(listEntity, thisUser.Id, ShoppingListPermissionType.Delete);
+            bool success = DeleteListWithoutChecks(listEntity.SyncId);
             if (success)
             {
                 // Send to all with permission Read
-                await _hubService.SendListRemoved(_userService.GetById(userId), shoppingListId, ShoppingListPermissionType.Read);
+                await _hubService.SendListRemoved(thisUser, listEntity.SyncId, ShoppingListPermissionType.Read);
             }
             _db.SaveChanges();
             return success;
@@ -246,6 +251,21 @@ namespace ShoppingListServer.Services
                 throw new ShoppingListNotFoundException(shoppingListId);
             bool success = DeleteShoppingListJson(shoppingListId);
             _db.ShoppingLists.Remove(listEntity);
+            return success;
+        }
+
+        public async Task<bool> DeleteAllListsOfUser(string thisUserId, bool deleteForEveryone)
+        {
+            List<ShoppingListWithPermissionDTO> listsWithPermissions = GetListsWithPermission(thisUserId, ShoppingListPermissionType.Read);
+            User thisUser = _userService.GetById(thisUserId);
+            bool success = true;
+            foreach (ShoppingListWithPermissionDTO listWithPermission in listsWithPermissions)
+            {
+                if (deleteForEveryone && listWithPermission.Permission.HasFlag(ShoppingListPermissionType.Delete))
+                    success &= await DeleteListForEveryone(listWithPermission.List, thisUser);
+                else
+                    success &= await DeleteList(listWithPermission.List.SyncId, thisUserId, thisUserId);
+            }
             return success;
         }
 

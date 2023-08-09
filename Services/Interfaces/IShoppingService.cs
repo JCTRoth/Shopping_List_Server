@@ -22,7 +22,15 @@ namespace ShoppingListServer.Services.Interfaces
         /// <see cref="StatusMessages.ListIsOwnedByBlockedUser">If the list exists but the user that owns it is blocked.</exception>
         ShoppingList GetList(string userId, string shoppingListId);
         ListLastChangeTimeDTO GetListLastChangeTime(string userId, string shoppingListId);
+
+        /// <summary>
+        /// Returns all lists that the given user has the given permission.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="permission"></param>
+        /// <returns></returns>
         List<ShoppingListWithPermissionDTO> GetListsWithPermission(string userId, ShoppingListPermissionType permission);
+
         // Return all lists that the user has the given permission for.
         List<ShoppingList> GetLists(string userId, ShoppingListPermissionType permission);
 
@@ -48,6 +56,7 @@ namespace ShoppingListServer.Services.Interfaces
         // - this is the last user
         Task<bool> DeleteList(string shoppingListId, string thisUserId, string targetUserId);
         Task<bool> DeleteListForEveryone(string shoppingListId, string userId);
+        Task<bool> DeleteAllListsOfUser(string thisUserId, bool deleteForEveryone);
         Task<bool> Update_Item_In_List(string itemNameOld, GenericItem itemNew, string userId, string shoppingListId);
         Task<bool> Add_Or_Update_Product_In_List(GenericProduct productNew, string userId, string shoppingListId);
         Task<bool> Remove_Item_In_List(string itemName, string userId, string shoppingListId);

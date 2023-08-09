@@ -343,9 +343,20 @@ namespace ShoppingListServer.Services
             return true;
         }
 
-        public bool DeleteUser()
+        public bool RemoveUser(string currentUserId)
         {
-
+            User currentUser = GetById(currentUserId);
+            currentUser.ContactShareId = null;
+            currentUser.FcmTokens.Clear();
+            currentUser.AlternativePasswords.Clear();
+            currentUser.EMailVerificationTokens.Clear();
+            currentUser.ResetPasswordTokens.Clear();
+            currentUser.ShoppingListPermissions.Clear();
+            currentUser.UserContactsThis.Clear();
+            currentUser.UserContactsOthers.Clear();
+            currentUser.ProfilePictureInfo = null;
+            _db.Users.Remove(currentUser);
+            _db.SaveChanges();
             return true;
         }
 

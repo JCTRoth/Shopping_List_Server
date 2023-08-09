@@ -23,16 +23,18 @@ namespace ShoppingListServer.Controllers
     public class UsersController : ControllerBase
     {
         protected IUserService _userService;
+        protected IShoppingService _shoppingService;
         protected IEMailVerificationService _emailVerificationService;
         protected IAuthenticationService _authenticationService;
 
         public UsersController(
             IUserService userService,
+            IShoppingService shoppingService,
             IEMailVerificationService emailVerificationService,
-            IResetPasswordService resetPasswordService,
             IAuthenticationService authenticationService)
         {
             _userService = userService;
+            _shoppingService = shoppingService;
             _emailVerificationService = emailVerificationService;
             _authenticationService = authenticationService;
         }
@@ -177,13 +179,19 @@ namespace ShoppingListServer.Controllers
 
         /// <summary>
         /// Delets the logged in users account.
+        /// Removes all contacts of the user and other user that have this user as contact.
+        /// Removes all list permissions. Does not remove lists for everyone for those lists where this user has delete permissions on.
         /// </summary>
         /// <returns></returns>
         [HttpDelete("user")]
-        public IActionResult DeleteUser()
+        public async Task<IActionResult> RemoveUser()
         {
             string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            bool success = _userService.DeleteUser(currentUserId);
+
+            // Delete all lists or permissions of the user to the list.
+            await _shoppingService.DeleteAllListsOfUser(currentUserId, false);
+            // Remove the user from the database.
+            bool success = _userService.RemoveUser(currentUserId);
             if (success)
                 return Ok();
             else
