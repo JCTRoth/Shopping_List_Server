@@ -90,7 +90,7 @@ namespace ShoppingListServer.Controllers
             if (added)
                 return Ok(new_list_item);
             else
-                return BadRequest("Adding failed. List already exists.");
+                return BadRequest(StatusMessages.ListAlreadyAdded);
         }
 
         [Authorize(Roles = Role.User)]
@@ -106,7 +106,7 @@ namespace ShoppingListServer.Controllers
             if (deleted)
                 return Ok();
             else
-                return BadRequest(new { message = "Deleting of list failed. List is already removed." });
+                return BadRequest(new { message = StatusMessages.ListNotFound });
         }
 
         [HttpPatch("list")]
@@ -117,7 +117,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Update failed.");
+                return BadRequest(StatusMessages.ListUpdateFailed);
         }
 
         [Authorize(Roles = Role.User)]
@@ -134,7 +134,7 @@ namespace ShoppingListServer.Controllers
             if (ok)
                 return Ok();
             else
-                return BadRequest("Update of item failed. Item not found.");
+                return BadRequest(StatusMessages.ItemNotFound);
         }
 
         [HttpPatch("listproperty")]
@@ -146,7 +146,7 @@ namespace ShoppingListServer.Controllers
             if (ok)
                 return Ok();
             else
-                return BadRequest("Update of list property value failed.");
+                return BadRequest(StatusMessages.ListUpdateFailed);
         }
 
         [Authorize(Roles = Role.User)]
@@ -306,7 +306,7 @@ namespace ShoppingListServer.Controllers
         /// The list share id has to be generated with <see cref="GenerateOrExtendListShareId(string)"/>.
         /// 
         /// Possible status messages:
-        /// <see cref="StatusMessages.ShoppingListNotFound">If there is no shopping list with the given sync id.</see>
+        /// <see cref="StatusMessages.ListNotFound">If there is no shopping list with the given sync id.</see>
         /// <see cref="StatusMessages.ListShareLinkExpired">If the link has been expired (older than 2 days).</see>
         /// <see cref="StatusMessages.ListAlreadyAdded">If the user that created the link doesn't exist.</see>
         /// </summary>

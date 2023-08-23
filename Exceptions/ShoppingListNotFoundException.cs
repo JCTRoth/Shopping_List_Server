@@ -11,7 +11,7 @@ namespace ShoppingListServer.Exceptions
         public string ShoppingListId { get; set; }
 
         public ShoppingListNotFoundException(string _shoppingListId)
-            : base(StatusMessages.ShoppingListNotFound)
+            : base(StatusMessages.ListNotFound)
         {
             ShoppingListId = _shoppingListId;
         }

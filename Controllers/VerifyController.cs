@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShoppingListServer.Entities;
+using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 using System;
 using System.Security.Claims;
@@ -37,7 +38,7 @@ namespace ShoppingListServer.Controllers
             {
                 return Ok();
             }
-            return BadRequest(new { message = "Something went wrong." });
+            return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
 
         // This address is supposed to be called from a web browser.

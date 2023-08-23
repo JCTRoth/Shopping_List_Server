@@ -576,7 +576,7 @@ namespace ShoppingListServer.Services
             ShoppingList targetList = query.FirstOrDefault();
             if (targetList == null)
             {
-                throw new Exception(StatusMessages.ShoppingListNotFound);
+                throw new Exception(StatusMessages.ListNotFound);
             }
             else if (targetList.ShareId.IsExpired())
             {

@@ -100,7 +100,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// The list share id has to be generated with <see cref="GenerateOrExtendListShareId(string)"/>.
         /// 
         /// Possible status messages:
-        /// <see cref="StatusMessages.ShoppingListNotFound">If there is no shopping list with the given sync id.</see>
+        /// <see cref="StatusMessages.ListNotFound">If there is no shopping list with the given sync id.</see>
         /// <see cref="StatusMessages.ListShareLinkExpired">If the link has been expired (older than 2 days).</see>
         /// <see cref="StatusMessages.ListAlreadyAdded">If the user that created the link doesn't exist.</see>
         /// </summary>

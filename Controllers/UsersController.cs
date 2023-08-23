@@ -99,7 +99,7 @@ namespace ShoppingListServer.Controllers
             {
                 return Ok(user.WithoutPassword());
             }
-            return BadRequest(new { message = "Something went wrong." });
+            return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
 
         [AllowAnonymous]
@@ -116,7 +116,7 @@ namespace ShoppingListServer.Controllers
             {
                 return Ok(user.WithoutPassword());
             }
-            return BadRequest(new { message = "Something went wrong." });
+            return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
 
         [AllowAnonymous]
@@ -142,7 +142,7 @@ namespace ShoppingListServer.Controllers
             {
                 return Ok(user.WithoutPassword());
             }
-            return BadRequest(new { message = "Something went wrong." });
+            return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
 
         /*
@@ -174,7 +174,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong :(");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         /// <summary>
@@ -195,7 +195,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong.");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         // Update the currently logged ins password. The password will not
@@ -213,7 +213,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong :(");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         /// <summary>
@@ -266,7 +266,6 @@ namespace ShoppingListServer.Controllers
         {
             UserContactDTO contact = JsonConvert.DeserializeObject<UserContactDTO>(jsonBody.ToString());
             await _userService.AddOrUpdateContact(User.FindFirstValue(ClaimTypes.NameIdentifier), contact.User, contact.Type, false);
-            Console.WriteLine("added contact");
             return Ok();
         }
 
@@ -285,7 +284,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("There was no contact to remove.");
+                return BadRequest(StatusMessages.ContactNotFound);
         }
 
         [HttpGet("contacts")]
@@ -300,7 +299,7 @@ namespace ShoppingListServer.Controllers
             if (contactsReturn != null)
                 return Ok(contactsReturn);
             else
-                return BadRequest("Something went wrong.");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         /// <summary>

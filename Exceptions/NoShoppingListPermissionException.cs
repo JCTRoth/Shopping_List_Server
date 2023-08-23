@@ -10,7 +10,7 @@ namespace ShoppingListServer.Exceptions
     public class NoShoppingListPermissionException : Exception
     {
         public NoShoppingListPermissionException(ShoppingListPermission _permission, ShoppingListPermissionType _expectedPermission)
-            : base(StatusMessages.MissingShoppingListPermission)
+            : base(StatusMessages.MissingListPermission)
         {
             Permission = _permission;
             ExpectedPermission = _expectedPermission;

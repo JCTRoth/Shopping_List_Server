@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using ShoppingListServer.Logic;
+using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 using System;
 using System.Security.Claims;
@@ -37,7 +38,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong.");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         /// <summary>
@@ -59,7 +60,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong.");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
 
         /// <summary>
@@ -81,7 +82,7 @@ namespace ShoppingListServer.Controllers
             if (success)
                 return Ok();
             else
-                return BadRequest("Something went wrong.");
+                return BadRequest(StatusMessages.SomethingWentWrong);
         }
     }
 }
