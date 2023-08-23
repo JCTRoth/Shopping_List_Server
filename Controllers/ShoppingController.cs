@@ -162,7 +162,7 @@ namespace ShoppingListServer.Controllers
             if (ok)
                 return Ok();
             else
-                return BadRequest("Remove of item failed. Item not found.");
+                return BadRequest(StatusMessages.ItemNotFound);
         }
 
         [Authorize(Roles = Role.User)]
@@ -178,7 +178,7 @@ namespace ShoppingListServer.Controllers
             if (ok)
                 return Ok();
             else
-                return BadRequest("Update of item failed. Item not found.");
+                return BadRequest(StatusMessages.ItemNotFound);
         }
 
         // Returns the permissions of all users of a list:

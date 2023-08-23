@@ -381,6 +381,11 @@ namespace ShoppingListServer.Services
         {
             targetUser = FindUser(targetUser);
 
+            if (targetUser.Id.Equals(currentUserId))
+            {
+                throw new Exception(StatusMessages.CannotAddYourselfAsContact);
+            }
+
             var contactQuery = from c in _db.Set<UserContact>()
                                where c.UserSourceId == currentUserId && c.UserTargetId == targetUser.Id
                                select c;
@@ -540,10 +545,6 @@ namespace ShoppingListServer.Services
             else if (targetUser.ContactShareId.IsExpired())
             {
                 throw new Exception(StatusMessages.ContactLinkExpired);
-            }
-            else if (targetUser == thisUser)
-            {
-                throw new Exception(StatusMessages.CannotAddYourselfAsContact);
             }
             else
             {
