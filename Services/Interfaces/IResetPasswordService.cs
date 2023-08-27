@@ -23,7 +23,7 @@ namespace ShoppingListServer.Services.Interfaces
         /// <param name="email">email address of user whose password should be changed.</param>
         /// <returns></returns>
         /// <exception cref="UserNotFoundException">If no user with that email address could be found.</exception>
-        Task<bool> SendResetPasswordEMailAndAddToken(string userId, string email);
+        Task<bool> SendResetPasswordEMailAndAddToken(string email);
 
         /// <summary>
         /// Verifies that the given code exists for the given email and if not

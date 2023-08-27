@@ -32,9 +32,8 @@ namespace ShoppingListServer.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> RequestResetPasswordCode([FromBody] object jsonBody)
         {
-            Tuple<string> passwordUpdate = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
-            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            bool success = await _resetPasswordService.SendResetPasswordEMailAndAddToken(currentUserId, passwordUpdate.Item1);
+            Tuple<string> email = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
+            bool success = await _resetPasswordService.SendResetPasswordEMailAndAddToken(email.Item1);
             if (success)
                 return Ok();
             else

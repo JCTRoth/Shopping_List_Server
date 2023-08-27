@@ -35,10 +35,10 @@ namespace ShoppingListServer.Services
             _userHub = userHub;
         }
 
-        public async Task<bool> SendResetPasswordEMailAndAddToken(string userId, string email)
+        public async Task<bool> SendResetPasswordEMailAndAddToken(string email)
         {
+            User user = _db.FindUser_EMail(email);
             ResetPasswordToken token = AddResetPasswordToken(email);
-            User user = _db.FindUser_ID(userId);
             return await SendResetPasswordEMail(user.Username, email, token.Code);
         }
 
