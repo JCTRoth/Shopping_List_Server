@@ -118,19 +118,13 @@ namespace ShoppingListServer.Services
             {
                 if (DateTime.UtcNow > t.ExpirationTime)
                     throw new Exception(StatusMessages.EMailVerificationLinkExpired);
-                var userQuery = from token in _db.Set<EMailVerificationToken>()
-                                join user in _db.Set<User>()
-                                on token.UserId equals user.Id
-                                select user;
-                u = userQuery.FirstOrDefault();
-                if (u != null)
+
+                u = t.User;
+                u.EMailVerificationTokens.Clear();
+                if (!u.IsVerified)
                 {
-                    u.EMailVerificationTokens.Clear();
-                    if (!u.IsVerified)
-                    {
-                        u.IsVerified = true;
-                        _userHub.SendUserVerified(u);
-                    }
+                    u.IsVerified = true;
+                    _userHub.SendUserVerified(u);
                 }
             }
             _db.SaveChanges();
