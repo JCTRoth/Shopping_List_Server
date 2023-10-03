@@ -589,6 +589,23 @@ namespace ShoppingListServer.Services
             return targetList;
         }
 
+        public ShoppingList GetListFromListShareId(string listShareId)
+        {
+            var query = from list in _db.Set<ShoppingList>()
+                        where list.ShareId != null && list.ShareId.Data == listShareId
+                        select list;
+            ShoppingList targetList = query.FirstOrDefault();
+            if (targetList == null)
+            {
+                throw new Exception(StatusMessages.ListNotFound);
+            }
+            else if (targetList.ShareId.IsExpired())
+            {
+                throw new Exception(StatusMessages.ListShareLinkExpired);
+            }
+            return targetList;
+        }
+
         // Returns the entity of the given shopping list. This is an object that has only the fields set that are in the database.
         // Fields that are marked with [NotMapped] will be null. This is only the "hull" of a list that should be used for query
         // operations on the database or to fetch the missing information from json files.

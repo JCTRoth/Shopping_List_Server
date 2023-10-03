@@ -339,6 +339,13 @@ namespace ShoppingListServer.Controllers
             return Ok(targetUser.WithoutPassword());
         }
 
+        [HttpGet("contact_share_id/{contactShareId}")]
+        public IActionResult GetUserByShareId(string contactShareId)
+        {
+            User targetUser = _userService.GetUserFromContactShareId(contactShareId);
+            return Ok(targetUser.WithoutPassword());
+        }
+
         /// <summary>
         /// This is the fallback when adding a new contact via app-link.
         /// The link is generated on client side.

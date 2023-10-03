@@ -320,6 +320,13 @@ namespace ShoppingListServer.Controllers
             return Ok(listEntity.SyncId);
         }
 
+        [HttpGet("list_share_id/{shareId}")]
+        public IActionResult GetListByShareId(string shareId)
+        {
+            ShoppingList listEntity = _shoppingService.GetListFromListShareId(shareId);
+            return Ok(listEntity.SyncId);
+        }
+
         /// <summary>
         /// This is the fallback when sharing a list via app-link.
         /// The link is generated on client side.

@@ -556,6 +556,23 @@ namespace ShoppingListServer.Services
             return targetUser;
         }
 
+        public User GetUserFromContactShareId(string contactShareId)
+        {
+            var query = from user in _db.Set<User>()
+                        where user.ContactShareId != null && user.ContactShareId.Data == contactShareId
+                        select user;
+            User targetUser = query.FirstOrDefault();
+            if (targetUser == null)
+            {
+                throw new Exception(StatusMessages.UserNotFound);
+            }
+            else if (targetUser.ContactShareId.IsExpired())
+            {
+                throw new Exception(StatusMessages.ContactLinkExpired);
+            }
+            return targetUser;
+        }
+
         /// <summary>
         /// Checks if the given email is valid (formating / no illegal hosts).
         /// </summary>

@@ -107,5 +107,14 @@ namespace ShoppingListServer.Services.Interfaces
         /// <returns>The added list.</returns>
         public Task<ShoppingList> AddListFromListShareId(string currentUserId, string listShareId);
 
+        /// <summary>
+        /// Possible status messages:
+        /// <see cref="StatusMessages.ListNotFound">If there is no shopping list with the given sync id.</see>
+        /// <see cref="StatusMessages.ListShareLinkExpired">If the link has been expired (older than 2 days).</see>
+        /// </summary>
+        /// <param name="listShareId"></param>
+        /// <returns></returns>
+        public ShoppingList GetListFromListShareId(string listShareId);
+
     }
 }
