@@ -4,6 +4,7 @@
     <AssemblyName>ShoppingListServer</AssemblyName>
     <RootNamespace>ShoppingListServer</RootNamespace>
     <UseNETCoreGenerator>true</UseNETCoreGenerator>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -34,12 +35,13 @@
     <None Remove="files\AuthKey_488JJZA452.p8" />
     <None Remove="Files\AuthKey_HQW3PG254R.p8" />
   </ItemGroup>
-  <ItemGroup> 
-    <Content Include="wwwroot\.well-known\**"> 
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> 
-    </Content> 
-  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Files\AuthKey_HQW3PG254R.p8" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="wwwroot\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
