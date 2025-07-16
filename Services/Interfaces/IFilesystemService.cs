@@ -1,5 +1,4 @@
-﻿using System;
-namespace ShoppingListServer.Services.Interfaces
+﻿namespace ShoppingListServer.Services.Interfaces
 {
     // Provides methods to access the file system and various file storage locations (in the docker volume).
     public interface IFilesystemService

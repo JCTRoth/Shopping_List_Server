@@ -1,5 +1,4 @@
-﻿using System;
-using ShoppingListServer.Models;
+﻿using ShoppingListServer.Models;
 
 namespace ShoppingListServer.Services.Interfaces
 {

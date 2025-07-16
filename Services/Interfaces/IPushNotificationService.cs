@@ -1,5 +1,4 @@
 ﻿using ShoppingListServer.Entities;
-using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
 using System.Threading.Tasks;
 

@@ -1,12 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
-using System;
-using System.Security.Claims;
-using System.Threading.Tasks;
+
 
 namespace ShoppingListServer.Controllers
 {

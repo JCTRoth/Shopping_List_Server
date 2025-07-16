@@ -1,13 +1,12 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.LiveUpdates;
 using ShoppingListServer.Services.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace ShoppingListServer.Services
 {

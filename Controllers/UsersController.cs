@@ -12,8 +12,7 @@ using System.Security.Claims;
 using System.Collections.Generic;
 using ShoppingListServer.Logic;
 using Microsoft.AspNetCore.Http;
-using System.Net.Http;
-using System.Text.Json.Nodes;
+
 
 namespace ShoppingListServer.Controllers
 {

@@ -1,5 +1,4 @@
-﻿using System;
-namespace ShoppingListServer.Models
+﻿namespace ShoppingListServer.Models
 {
     public class AppleAccount
     {

@@ -12,8 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
-using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
-using Newtonsoft.Json;
 using ShoppingListServer.Database;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Services;

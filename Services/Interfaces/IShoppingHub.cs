@@ -1,7 +1,6 @@
 ﻿using ShoppingListServer.Entities;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace ShoppingListServer.LiveUpdates

@@ -1,26 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Reflection;
-using System.Reflection.Metadata;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
-using Org.BouncyCastle.Bcpg.OpenPgp;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
-using static System.Net.WebRequestMethods;
 
 namespace ShoppingListServer.Services
 {

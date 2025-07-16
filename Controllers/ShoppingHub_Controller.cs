@@ -2,11 +2,6 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.DependencyInjection;
-using ShoppingListServer.Entities;
-using ShoppingListServer.Models;
-using ShoppingListServer.Models.ShoppingData;
-using ShoppingListServer.Services;
 
 namespace ShoppingListServer.LiveUpdates
 {

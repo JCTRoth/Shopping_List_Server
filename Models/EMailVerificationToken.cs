@@ -1,10 +1,8 @@
-﻿using ShoppingListServer.Entities;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
+using ShoppingListServer.Entities;
+
 
 namespace ShoppingListServer.Models
 {
@@ -14,9 +12,9 @@ namespace ShoppingListServer.Models
         [Key, Required]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public string Id { get; set; }
-        
+
         // Foreign key for 1:n relationship
-        public string UserId {get; set;}
+        public string UserId { get; set; }
         public virtual User User { get; set; }
 
         public string UrlCode { get; set; }

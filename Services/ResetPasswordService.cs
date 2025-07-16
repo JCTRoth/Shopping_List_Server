@@ -7,7 +7,6 @@ using ShoppingListServer.Logic;
 using ShoppingListServer.Models;
 using ShoppingListServer.Services.Interfaces;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
