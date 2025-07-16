@@ -45,10 +45,8 @@ namespace ShoppingListServer.Logic
             char[] chars =
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".ToCharArray();
             byte[] data = new byte[size];
-            using (RNGCryptoServiceProvider crypto = new RNGCryptoServiceProvider())
-            {
-                crypto.GetBytes(data);
-            }
+            RandomNumberGenerator.Fill(data);
+            
             StringBuilder result = new StringBuilder(size);
             foreach (byte b in data)
             {
