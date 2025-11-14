@@ -24,12 +24,16 @@ namespace ShoppingListServer
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddJsonFile("auth/secrets.json", optional: true);
+                    if (hostingContext.HostingEnvironment.IsDevelopment())
+                    {
+                        config.AddJsonFile("auth/devMode.json", optional: true);
+                        config.AddJsonFile("auth/dev/credentials.json", optional: true);
+                    }
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>()
-                        .UseSetting("https_port", "5678")
-                        .UseUrls("https://0.0.0.0:5678;http://0.0.0.0:5677"); // The http port 5677 is only needed for local server with iPhone emulator
+                        .UseUrls("http://0.0.0.0:5677"); // The http port 5677 is only needed for local server with iPhone emulator
                 });
     }
 }

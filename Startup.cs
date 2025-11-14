@@ -10,13 +10,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Http;
 using ShoppingListServer.Database;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Services;
 using ShoppingListServer.LiveUpdates;
 using ShoppingListServer.Services.Interfaces;
+using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
@@ -25,18 +25,20 @@ namespace ShoppingListServer
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            Environment = env;
         }
 
         public IConfiguration Configuration { get; }
+        public IWebHostEnvironment Environment { get; }
 
         public static ServiceProvider _serviceProvider;
 
 
         // This method gets called by the runtime. Use this method to add services to the container.
-        public void ConfigureServices(IServiceCollection services)
+        public void ConfigureServices(IServiceCollection services, IWebHostEnvironment env)
         {
             services.AddCors();
             services.AddControllers();
@@ -125,26 +127,38 @@ namespace ShoppingListServer
                  "password=" + appSettings.DbPassword + ";" +
                  "database=" + appSettings.DbName + ";";
 
-            Console.WriteLine("Database connection string = " + connectionString);
-
-            ServerVersion service_version = ServerVersion.AutoDetect(connectionString);
+            // Console.WriteLine("Database connection string = " + connectionString);
 
             services.AddDbContextPool<AppDb>(
-                options => options
-                    .UseLazyLoadingProxies()
-                    .UseMySql(
-                        connectionString,
-                        service_version,
-                        mysqlOptions =>
-                        {
-                            // mysqlOptions.CharSetBehavior(CharSetBehavior.NeverAppend);
-                            // mysqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
-                        })
-                    .EnableSensitiveDataLogging()
+                options => {
+                    options.UseLazyLoadingProxies();
+                    bool useSQLite = Configuration.GetValue<bool>("UseSQLite");
+                    if (useSQLite)
+                    {
+                        options.UseSqlite("Data Source=shoppinglist.db");
+                    }
+                    else
+                    {
+                        ServerVersion service_version = ServerVersion.AutoDetect(connectionString);
+                        options.UseMySql(
+                            connectionString,
+                            service_version,
+                            mysqlOptions =>
+                            {
+                                // mysqlOptions.CharSetBehavior(CharSetBehavior.NeverAppend);
+                                // mysqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
+                            });
+                    }
+                    options
 #if DEBUG
                     .EnableDetailedErrors()
 #endif
-            );
+                    ;
+                    if (env.IsDevelopment())
+                    {
+                        options.EnableSensitiveDataLogging();
+                    }
+                });
 
             Console.WriteLine("Network adapter prioritization:");
             foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -170,7 +184,7 @@ namespace ShoppingListServer
                 // Setting the reason phrase: https://stackoverflow.com/a/42039124
                 context.Response.HttpContext.Features.Get<IHttpResponseFeature>().ReasonPhrase = exception.Message;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(exception.Message);
+                await context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(exception.Message));
             }));
 
             // Handle all other non cached exceptions
@@ -208,10 +222,14 @@ namespace ShoppingListServer
 
             try
             {
-                FirebaseApp.Create(new AppOptions()
+                bool useFirebase = Configuration.GetValue<bool>("UseFirebase");
+                if (useFirebase)
                 {
-                    Credential = GoogleCredential.GetApplicationDefault(),
-                });
+                    FirebaseApp.Create(new AppOptions()
+                    {
+                        Credential = GoogleCredential.GetApplicationDefault(),
+                    });
+                }
             }
             catch (Exception ex)
             {
