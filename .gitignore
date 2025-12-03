@@ -537,3 +537,11 @@ MigrationBackup/
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp,visualstudio,visualstudiocode
 .vs/WebApi/config/applicationhost.config
+
+# Archive files
+*.deb
+*.zip
+*.tar.gz
+*.rar
+
+*.md

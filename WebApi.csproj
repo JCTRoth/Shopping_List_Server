@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>ShoppingListServer</AssemblyName>
     <RootNamespace>ShoppingListServer</RootNamespace>
     <UseNETCoreGenerator>true</UseNETCoreGenerator>
@@ -36,7 +36,7 @@
     <None Remove="Files\AuthKey_HQW3PG254R.p8" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Files\AuthKey_HQW3PG254R.p8" />
+    <EmbeddedResource Include="auth\AuthKey_HQW3PG254R.p8" />
   </ItemGroup>
   
   <ItemGroup>
