@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "GRUP2R22W3.GenericListApp.iOS.app",
+        "appID": "REPLACE_WITH_APPLE_TEAM_ID.GenericListApp.iOS.app",
         "paths": [ "/users/*", "/shopping/*", "/verify/*" ]
       }
     ]

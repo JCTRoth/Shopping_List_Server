@@ -22,8 +22,8 @@
     <PackageReference Include="MySql.Data" Version="8.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="7.0.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.19.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.6.0" />
     <PackageReference Include="xunit.extensibility.core" Version="2.4.1" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" Version="1.1.0" />
   </ItemGroup>
@@ -34,7 +34,7 @@
     <None Remove="Microsoft.AspNetCore.SignalR.Core" />
     <None Remove="Microsoft.AspNetCore.All" />
     <None Remove="files\AuthKey_488JJZA452.p8" />
-    <None Remove="Files\AuthKey_HQW3PG254R.p8" />
+    <None Remove="Files\AuthKey_REPLACE_WITH_APPLE_KEY_ID.p8" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="auth\AuthKey_HQW3PG254R.p8" />

@@ -127,14 +127,14 @@ namespace ShoppingListServer.Controllers
             string accessToken = tuple.Item2;
             string password = tuple.Item3;
             // verify access token whith this link:
-            // https://graph.facebook.com/debug_token?input_token=EAAHOgab9jbkBAOZAmqu8ekE0y1VZBGFbfsWHBZCOZAW8fo6mAWIkR8uJmAgo4LXn69ImOeURBhZAzYDT4bYyuNqQegOkF3wA2k1JXZBbGghD3ZBDXrt3sqdyDRx6UjeJBa5XuT1qYiSHJXjYZA4oLLUdZBObGwWz3lHEEg9caUxItzZBcZAy52fCCjhid0pR3rDUOutHtp0Ppi0QgkJO9EYni2Ff0pyJwgpqtxAGuYTwWRFDj2YKZAAChP8BEjKXyfZBwKZC0ZD&access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
-            // https://graph.facebook.com/debug_token?input_token=<user-token>&access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
+            // https://graph.facebook.com/debug_token?input_token=REPLACE_WITH_USER_ACCESS_TOKEN&access_token=REPLACE_WITH_FACEBOOK_APP_TOKEN
+            // https://graph.facebook.com/debug_token?input_token=<user-token>&access_token=REPLACE_WITH_FACEBOOK_APP_TOKEN
             // verify that user exists
-            // https://graph.facebook.com/me?access_token=EAAHOgab9jbkBAOZAmqu8ekE0y1VZBGFbfsWHBZCOZAW8fo6mAWIkR8uJmAgo4LXn69ImOeURBhZAzYDT4bYyuNqQegOkF3wA2k1JXZBbGghD3ZBDXrt3sqdyDRx6UjeJBa5XuT1qYiSHJXjYZA4oLLUdZBObGwWz3lHEEg9caUxItzZBcZAy52fCCjhid0pR3rDUOutHtp0Ppi0QgkJO9EYni2Ff0pyJwgpqtxAGuYTwWRFDj2YKZAAChP8BEjKXyfZBwKZC0ZD
+            // https://graph.facebook.com/me?access_token=REPLACE_WITH_USER_ACCESS_TOKEN
 
-            // access_token=508531224448441
+            // access_token=REPLACE_WITH_FACEBOOK_APP_ID
             // graph.facebook.com/debug_token?input_token={token-to-inspect}&access_token={app-token-or-admin-token}
-            // https://graph.facebook.com/113716804852420?access_token=508531224448441|c_eL2lzG70c4N-6griSVFv2-f5w
+            // https://graph.facebook.com/REPLACE_WITH_FACEBOOK_APP_ID?access_token=REPLACE_WITH_FACEBOOK_APP_TOKEN
 
             User user = await _userService.RegisterFacebookUser(facebookProfile, accessToken, password);
             if (user != null)

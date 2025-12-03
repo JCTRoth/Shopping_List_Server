@@ -1,1 +1,0 @@
-{"Name":"/◇♧□{[]>|\\~`°3689","Category":"Groceries","ProductList":[{"Item":{"Name":"Salat","ImagePath":null,"Category":{"Name":"Gemüse"}},"Count":2,"Checked":false}],"Notes":null}
