@@ -8,7 +8,7 @@ services:
       MYSQL_RANDOM_ROOT_PASSWORD: 1
       MYSQL_DATABASE: shoppinglistserver
       MYSQL_USER: ShoppingListDBUser
-      MYSQL_PASSWORD: mysql-password-1234
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - dbdata:/var/lib/mysql
       - ./_MySQL_Init_Script:/docker-entrypoint-initdb.d
@@ -27,10 +27,10 @@ services:
         - shoppingdata:/app/data # must be the same folder name as DataStorageFolder (appsettings.json)
         - type: bind
           source: /etc/letsencrypt/kestrel/ # this folder contains the certificat files
-          target: /app/cert-files/
+          target: /app/auth/cert-files/
         - type: bind
           source: /etc/letsencrypt/apple-keys/ # this folder contains apple keys
-          target: /app/apple-keys/
+          target: /app/auth/
     command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 Main.py "]
     ports:
       - 5678:5678
