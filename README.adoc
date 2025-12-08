@@ -1,4 +1,6 @@
 = Shopping List Server
+:toc:
+:sectnums:
 
 == Overview
 
