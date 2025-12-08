@@ -12,11 +12,11 @@ This project enables users to create, manage, and share shopping lists with fine
 
 The Shopping List Server powers a mobile app with the following key screens:
 
-image::.doc/launch_screen.jpg[Launch Screen, width=300]
+|===
+| image::.doc/launch_screen.jpg[Launch Screen, width=200] | image::.doc/edit.jpg[Edit Screen, width=200] | image::.doc/zoom.jpg[Zoom Screen, width=200]
+|===
 
-image::.doc/edit.jpg[Edit Screen, width=300]
-
-image::.doc/zoom.jpg[Zoom Screen, width=300]
+* Launch Screen | Edit Screen | Zoom Screen
 
 == Features
 
