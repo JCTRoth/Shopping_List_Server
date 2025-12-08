@@ -542,6 +542,7 @@ MigrationBackup/
 *.deb
 *.zip
 *.tar.gz
+*.tar.7z
 *.rar
 
 *.md
