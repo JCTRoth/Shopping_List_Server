@@ -12,11 +12,14 @@ This project enables users to create, manage, and share shopping lists with fine
 
 The Shopping List Server powers a mobile app with the following key screens:
 
-|===
-| image::.doc/launch_screen.jpg[Launch Screen, width=200] | image::.doc/edit.jpg[Edit Screen, width=200] | image::.doc/zoom.jpg[Zoom Screen, width=200]
-|===
+[.text-center]
+++++
+<img src=".doc/launch_screen.jpg" alt="Launch Screen" width="200"/>
+<img src=".doc/edit.jpg" alt="Edit Screen" width="200"/>
+<img src=".doc/zoom.jpg" alt="Zoom Screen" width="200"/>
+++++
 
-* Launch Screen | Edit Screen | Zoom Screen
+Launch Screen | Edit Screen | Zoom Screen
 
 == Features
 
@@ -194,5 +197,4 @@ Contributions are welcome. Follow standard .NET practices, ensure tests pass, an
 
 == License
 
-This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.</content>
-<parameter name="filePath">/home/jonas/Git/Shopping_List_Server/README.adoc
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.
