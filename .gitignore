@@ -546,3 +546,6 @@ MigrationBackup/
 *.rar
 
 *.md
+shoppinglist.db
+shoppinglist.db-shm
+shoppinglist.db-wal
