@@ -209,7 +209,7 @@ namespace ShoppingListServer.Services
             _db.SaveChanges();
 
             result.WasFound = true;
-            result.ReturnValue = user.WithoutPassword();
+            result.ReturnValue = user.ToAuthenticatedUserResponse();
             return result;
         }
 

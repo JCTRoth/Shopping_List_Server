@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using ShoppingListServer.Entities;
+using ShoppingListServer.Models.Responses;
 
 namespace ShoppingListServer.Helpers
 {
@@ -24,7 +25,54 @@ namespace ShoppingListServer.Helpers
             user = user.Copy();
             user.PasswordHash = null;
             user.Salt = null;
+            user.Token = null;
+            user.Role = null;
+            user.ExternalId = null;
+            user.ContactShareId = null;
             return user;
+        }
+
+        public static UserResponseDto ToUserResponse(this User user)
+        {
+            if (user == null)
+                return null;
+
+            return new UserResponseDto
+            {
+                Id = user.Id,
+                EMail = user.EMail,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Username = user.Username,
+                ColorArgb = user.ColorArgb,
+                IsVerified = user.IsVerified
+            };
+        }
+
+        public static IEnumerable<UserResponseDto> ToUserResponses(this IEnumerable<User> users)
+        {
+            if (users == null)
+                return null;
+
+            return users.Select(x => x.ToUserResponse());
+        }
+
+        public static AuthenticatedUserResponseDto ToAuthenticatedUserResponse(this User user)
+        {
+            if (user == null)
+                return null;
+
+            return new AuthenticatedUserResponseDto
+            {
+                Id = user.Id,
+                EMail = user.EMail,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Username = user.Username,
+                ColorArgb = user.ColorArgb,
+                IsVerified = user.IsVerified,
+                Token = user.Token
+            };
         }
     }
 }

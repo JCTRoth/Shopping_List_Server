@@ -12,6 +12,8 @@ using System.Security.Claims;
 using System.Collections.Generic;
 using ShoppingListServer.Logic;
 using Microsoft.AspNetCore.Http;
+using ShoppingListServer.Models.Requests;
+using ShoppingListServer.Models.Responses;
 
 
 namespace ShoppingListServer.Controllers
@@ -77,7 +79,7 @@ namespace ShoppingListServer.Controllers
             if (success)
             {
                 await _emailVerificationService.SendEMailVerificationCodeAndAddToken(new_user.Id);
-                return Ok(new_user);
+                return Ok(new_user.ToUserResponse());
             }
             else
             {
@@ -96,7 +98,7 @@ namespace ShoppingListServer.Controllers
             User user = await _userService.RegisterAppleUser(appleAccount, password);
             if (user != null)
             {
-                return Ok(user.WithoutPassword());
+                return Ok(user.ToUserResponse());
             }
             return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
@@ -113,7 +115,7 @@ namespace ShoppingListServer.Controllers
             User user = await _userService.RegisterGoogleUser(googleUser, accessToken, password);
             if (user != null)
             {
-                return Ok(user.WithoutPassword());
+                return Ok(user.ToUserResponse());
             }
             return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
@@ -139,7 +141,7 @@ namespace ShoppingListServer.Controllers
             User user = await _userService.RegisterFacebookUser(facebookProfile, accessToken, password);
             if (user != null)
             {
-                return Ok(user.WithoutPassword());
+                return Ok(user.ToUserResponse());
             }
             return BadRequest(new { message = StatusMessages.SomethingWentWrong });
         }
@@ -206,7 +208,7 @@ namespace ShoppingListServer.Controllers
         [HttpPatch("password")]
         public IActionResult UpdatePassword([FromBody] object jsonBody)
         {
-            string passwordUpdate = JsonConvert.DeserializeObject<string>(jsonBody.ToString());
+            string passwordUpdate = DeserializeStringBody(jsonBody);
             string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             bool success = _userService.UpdateUserPassword(currentUserId, passwordUpdate);
             if (success)
@@ -243,7 +245,7 @@ namespace ShoppingListServer.Controllers
             if (user == null)
                 return NotFound();
 
-            return Ok(user.WithoutPassword());
+            return Ok(user.ToUserResponse());
         }
 
         // Redirects the user to the main page.
@@ -290,10 +292,10 @@ namespace ShoppingListServer.Controllers
         public IActionResult GetContacts()
         {
             List<UserContact> contacts = _userService.GetContacts(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            List<UserContactDTO> contactsReturn = new List<UserContactDTO>();
+            List<UserContactResponseDto> contactsReturn = new List<UserContactResponseDto>();
             foreach (UserContact contact in contacts)
             {
-                contactsReturn.Add(new UserContactDTO(contact.UserTarget.WithoutPassword(), contact.UserContactType));
+                contactsReturn.Add(new UserContactResponseDto(contact.UserTarget.ToUserResponse(), contact.UserContactType));
             }
             if (contactsReturn != null)
                 return Ok(contactsReturn);
@@ -315,7 +317,7 @@ namespace ShoppingListServer.Controllers
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string contactShareId = _userService.GenerateOrExtendContactShareId(currentUserId);
-            return Ok(contactShareId);
+            return new JsonResult(contactShareId);
         }
 
         /// <summary>
@@ -335,14 +337,14 @@ namespace ShoppingListServer.Controllers
             Tuple<string> contactShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             User targetUser = await _userService.AddUserFromContactShareId(currentUserId, contactShareId.Item1);
-            return Ok(targetUser.WithoutPassword());
+            return Ok(targetUser.ToUserResponse());
         }
 
         [HttpGet("contact_share_id/{contactShareId}")]
         public IActionResult GetUserByShareId(string contactShareId)
         {
             User targetUser = _userService.GetUserFromContactShareId(contactShareId);
-            return Ok(targetUser.WithoutPassword());
+            return Ok(targetUser.ToUserResponse());
         }
 
         /// <summary>
@@ -392,12 +394,13 @@ namespace ShoppingListServer.Controllers
         /// <param name="file">jpg profile picture</param>
         /// <param name="jsonString">ImageTransformationDTO</param>
         /// <returns></returns>
+        [Consumes("multipart/form-data")]
         [HttpPost("profile_picture")]
-        public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] IFormFile file, [FromForm] string jsonString)
+        public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] ProfilePictureUploadRequest request)
         {
-            ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(jsonString.ToString());
+            ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(request.JsonString);
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            await _userService.AddOrUpdateProfilePicture(currentUserId, file, info);
+            await _userService.AddOrUpdateProfilePicture(currentUserId, request.File, info);
             return Ok();
         }
 
@@ -446,7 +449,7 @@ namespace ShoppingListServer.Controllers
         /// </summary>
         /// <param name="userId"></param>
         /// <returns>ImageInfo</returns>
-        [Authorize(Roles = Role.User)]
+        [Authorize(Roles = Role.User + "," + Role.Admin)]
         [HttpGet("profile_picture_info/{userId}")]
         public IActionResult GetProfilePictureInfo(string userId)
         {
@@ -462,7 +465,7 @@ namespace ShoppingListServer.Controllers
         /// </summary>
         /// <param name="userId">target user</param>
         /// <returns>byte[]</returns>
-        [Authorize(Roles = Role.User)]
+        [Authorize(Roles = Role.User + "," + Role.Admin)]
         [HttpGet("profile_picture/{userId}")]
         public async Task<IActionResult> GetProfilePicture(string userId)
         {
@@ -472,6 +475,22 @@ namespace ShoppingListServer.Controllers
 
             byte[] bytes = await _userService.GetProfilePicture(userId);
             return File(bytes, "image/jpeg");
+        }
+
+        private static string DeserializeStringBody(object jsonBody)
+        {
+            if (jsonBody is string text)
+                return text;
+
+            if (jsonBody is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return jsonElement.GetString();
+
+                return JsonConvert.DeserializeObject<string>(jsonElement.GetRawText());
+            }
+
+            return JsonConvert.DeserializeObject<string>(jsonBody?.ToString());
         }
 
     }

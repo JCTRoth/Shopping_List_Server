@@ -356,7 +356,7 @@ namespace ShoppingListServer.Services
                     }
                 }
             }
-            return false;
+            return success;
         }
 
         // Return List<Tuple<UserId, Permission>>

@@ -12,6 +12,7 @@ using ShoppingListServer.Models.Commands;
 using ShoppingListServer.Models.ShoppingData;
 using ShoppingListServer.Services.Interfaces;
 using ShoppingListServer.Logic;
+using ShoppingListServer.Models.Responses;
 
 namespace ShoppingListServer.Controllers
 {
@@ -30,11 +31,11 @@ namespace ShoppingListServer.Controllers
         }
 
         [Authorize(Roles = Role.User)]
-        [HttpGet("list/{syncID}")]
-        public IActionResult GetList(string syncID)
+        [HttpGet("list/{syncId}")]
+        public IActionResult GetList(string syncId)
         {
             string userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            ShoppingList list = _shoppingService.GetList(userID, syncID);
+            ShoppingList list = _shoppingService.GetList(userID, syncId);
             if (list != null)
                 return Ok(list);
             else
@@ -42,11 +43,11 @@ namespace ShoppingListServer.Controllers
         }
 
         [Authorize(Roles = Role.User)]
-        [HttpGet("list_lastchange/{syncID}")]
-        public IActionResult GetListLastChangeTime(string syncID)
+        [HttpGet("list_lastchange/{syncId}")]
+        public IActionResult GetListLastChangeTime(string syncId)
         {
             string userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            ListLastChangeTimeDTO listLastChangeTime = _shoppingService.GetListLastChangeTime(userID, syncID);
+            ListLastChangeTimeDTO listLastChangeTime = _shoppingService.GetListLastChangeTime(userID, syncId);
             return Ok(listLastChangeTime);
         }
 
@@ -191,10 +192,10 @@ namespace ShoppingListServer.Controllers
             List<Tuple<string, ShoppingListPermissionType>> userPermissions = _shoppingService.GetListPermissions(listId);
             if (userPermissions != null)
             {
-                List<Tuple<User, string>> permissions = new List<Tuple<User, string>>();
+                List<ListPermissionResponseDto> permissions = new List<ListPermissionResponseDto>();
                 foreach (Tuple<string, ShoppingListPermissionType> tuple in userPermissions)
                 {
-                    permissions.Add(Tuple.Create(_userService.GetById(tuple.Item1).WithoutPassword(), tuple.Item2.ToString()));
+                    permissions.Add(new ListPermissionResponseDto(_userService.GetById(tuple.Item1).ToUserResponse(), tuple.Item2.ToString()));
                 }
                 return Ok(permissions);
             }
@@ -240,7 +241,7 @@ namespace ShoppingListServer.Controllers
             string thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ShoppingListPermissionType permission = _shoppingService.GetUserListPermission(listId, thisUserId, userId);
             if (permission != ShoppingListPermissionType.Undefined)
-                return Ok(permission.ToString());
+                return new JsonResult(permission.ToString());
             else
                 return BadRequest(new { message = "Not Found" });
         }
@@ -296,7 +297,7 @@ namespace ShoppingListServer.Controllers
         {
             var thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string listShareId = _shoppingService.GenerateOrExtendListShareId(listId, thisUserId);
-            return Ok(listShareId);
+            return new JsonResult(listShareId);
         }
 
         /// <summary>
@@ -317,14 +318,14 @@ namespace ShoppingListServer.Controllers
             Tuple<string> listShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ShoppingList listEntity = await _shoppingService.AddListFromListShareId(currentUserId, listShareId.Item1);
-            return Ok(listEntity.SyncId);
+            return new JsonResult(listEntity.SyncId);
         }
 
         [HttpGet("list_share_id/{shareId}")]
         public IActionResult GetListByShareId(string shareId)
         {
             ShoppingList listEntity = _shoppingService.GetListFromListShareId(shareId);
-            return Ok(listEntity.SyncId);
+            return new JsonResult(listEntity.SyncId);
         }
 
         /// <summary>
