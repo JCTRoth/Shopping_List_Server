@@ -678,6 +678,36 @@ namespace ShoppingListServer.Services
             return false;
         }
 
+        public bool IsAssociatedUser(string currentUserId, string targetUserId)
+        {
+            if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(targetUserId))
+            {
+                return false;
+            }
+
+            if (currentUserId == targetUserId)
+            {
+                return true;
+            }
+
+            bool isContact = _db.Set<UserContact>().Any(contact =>
+                contact.UserSourceId == currentUserId && contact.UserTargetId == targetUserId);
+
+            if (isContact)
+            {
+                return true;
+            }
+
+            bool sharesList = (from currentPermission in _db.Set<ShoppingListPermission>()
+                               join targetPermission in _db.Set<ShoppingListPermission>()
+                                   on currentPermission.ShoppingListId equals targetPermission.ShoppingListId
+                               where currentPermission.UserId == currentUserId
+                                   && targetPermission.UserId == targetUserId
+                               select currentPermission.ShoppingListId).Any();
+
+            return sharesList;
+        }
+
         public ImageInfo GetProfilePictureInfo(string currentUserId)
         {
             User user = FindUser(currentUserId, null);

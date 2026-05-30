@@ -235,7 +235,7 @@ namespace ShoppingListServer.Controllers
             // only allow admin to access other user records
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (id != currentUserId && !User.IsInRole(Role.User))
+            if (id != currentUserId && !User.IsInRole(Role.Admin))
                 return Forbid();
 
             var user = _userService.GetById(id);
@@ -450,6 +450,10 @@ namespace ShoppingListServer.Controllers
         [HttpGet("profile_picture_info/{userId}")]
         public IActionResult GetProfilePictureInfo(string userId)
         {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!User.IsInRole(Role.Admin) && !_userService.IsAssociatedUser(currentUserId, userId))
+                return Forbid();
+
             return Ok(_userService.GetProfilePictureInfo(userId));
         }
 
@@ -462,6 +466,10 @@ namespace ShoppingListServer.Controllers
         [HttpGet("profile_picture/{userId}")]
         public async Task<IActionResult> GetProfilePicture(string userId)
         {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!User.IsInRole(Role.Admin) && !_userService.IsAssociatedUser(currentUserId, userId))
+                return Forbid();
+
             byte[] bytes = await _userService.GetProfilePicture(userId);
             return File(bytes, "image/jpeg");
         }

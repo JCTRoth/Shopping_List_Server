@@ -154,7 +154,9 @@ namespace ShoppingListServer
                     .EnableDetailedErrors()
 #endif
                     ;
-                    if (Environment.IsDevelopment())
+                    // Enable sensitive-data logging only when explicitly enabled in configuration.
+                    var enableSensitiveLogging = Configuration.GetValue<bool>("AppSettings:EnableSensitiveDataLogging", false);
+                    if (Environment.IsDevelopment() && enableSensitiveLogging)
                     {
                         options.EnableSensitiveDataLogging();
                     }

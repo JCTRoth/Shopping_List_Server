@@ -104,6 +104,8 @@ namespace ShoppingListServer.Services.Interfaces
 
         bool RemoveProfilePicture(string currentUserId);
 
+        bool IsAssociatedUser(string currentUserId, string targetUserId);
+
         ImageInfo GetProfilePictureInfo(string userId);
 
         Task<byte[]> GetProfilePicture(string userId);
