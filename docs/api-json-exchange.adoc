@@ -1,0 +1,1402 @@
+= API JSON Exchange Reference
+:toc: left
+:toclevels: 4
+:sectnums:
+:icons: font
+:source-highlighter: highlight.js
+
+== Overview
+
+This document describes every JSON object exchanged between the Shopping List Server and its clients. It covers REST API request/response bodies, SignalR real-time messages, and internal file-based JSON storage.
+
+For how the database stores and retrieves data that feeds these JSON responses, see link:database-integration.adoc[Database Integration].
+
+'''
+
+== Authentication
+
+All authenticated endpoints require a JWT Bearer token in the `Authorization` header:
+
+[source]
+----
+Authorization: Bearer <jwt-token>
+----
+
+For SignalR connections, the token can alternatively be passed as a query parameter:
+
+[source]
+----
+/shoppingserver/update?access_token=<jwt-token>
+----
+
+'''
+
+== Common JSON Models
+
+These models appear across multiple endpoints and SignalR messages.
+
+=== User
+
+Returned by authentication, registration, and contact endpoints. Sensitive fields are stripped via `WithoutPassword()` before serialization.
+
+[source,json]
+----
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email": "user@example.com",
+  "firstName": "Alice",
+  "lastName": "Smith",
+  "username": "alice_s",
+  "externalId": null,
+  "colorArgb": -16776961,
+  "passwordHash": null,
+  "salt": null,
+  "role": "user",
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "isVerified": true
+}
+----
+
+[cols="2,1,1,3", options="header"]
+|===
+| Field | Type | Nullable | Description
+
+| `id` | string (GUID) | No | Unique user identifier
+| `email` | string | Yes | User's email address
+| `firstName` | string | Yes | First name
+| `lastName` | string | Yes | Last name
+| `username` | string | Yes | Display name (Unicode supported)
+| `externalId` | string | Yes | OAuth provider user ID (Apple/Google/Facebook)
+| `colorArgb` | integer | Yes | Profile color as `System.Drawing.Color.ToArgb()` value
+| `passwordHash` | string | Yes | Always `null` in responses (stripped by `WithoutPassword()`)
+| `salt` | string | Yes | Always `null` in responses
+| `role` | string | No | Always `"user"` (set server-side, ignored in requests)
+| `token` | string | Yes | JWT bearer token (only present after authentication)
+| `isVerified` | boolean | No | Whether the user's email is verified
+|===
+
+=== ShoppingList
+
+Core shopping list object. Fields marked `[NotMapped]` are stored as JSON files on the filesystem, not in the database (see link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]).
+
+[source,json]
+----
+{
+  "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "name": "Weekly Groceries",
+  "category": "Food",
+  "dateString": "2024-03-15T00:00:00",
+  "notes": "Don't forget the organic section",
+  "productList": [
+    {
+      "item": {
+        "name": "Milk",
+        "imagePath": null,
+        "category": {
+          "name": "Dairy",
+          "colorHex": "#4FC3F7",
+          "imagePath": null
+        }
+      },
+      "count": 2,
+      "checked": false
+    },
+    {
+      "item": {
+        "name": "Bread",
+        "imagePath": null,
+        "category": {
+          "name": "Bakery",
+          "colorHex": "#FFB74D",
+          "imagePath": null
+        }
+      },
+      "count": 1,
+      "checked": true
+    }
+  ]
+}
+----
+
+=== GenericProduct
+
+A product entry within a shopping list.
+
+[source,json]
+----
+{
+  "item": {
+    "name": "Apples",
+    "imagePath": null,
+    "category": {
+      "name": "Fruits",
+      "colorHex": "#81C784",
+      "imagePath": null
+    }
+  },
+  "count": 5,
+  "checked": false
+}
+----
+
+[cols="2,1,1,3", options="header"]
+|===
+| Field | Type | Nullable | Description
+
+| `item` | GenericItem | No | The item definition
+| `count` | integer | No | Quantity
+| `checked` | boolean | No | Whether the item has been picked up
+|===
+
+=== GenericItem
+
+[cols="2,1,1,3", options="header"]
+|===
+| Field | Type | Nullable | Description
+
+| `name` | string | No | Item display name
+| `imagePath` | string | Yes | URI to item image
+| `category` | Category | Yes | Item categorization
+|===
+
+=== Category
+
+[cols="2,1,1,3", options="header"]
+|===
+| Field | Type | Nullable | Description
+
+| `name` | string | No | Category display name
+| `colorHex` | string | Yes | Hex color code (e.g. `#FF5722`)
+| `imagePath` | string | Yes | URI to category icon
+|===
+
+=== Error Response
+
+All error responses follow this format:
+
+[source,json]
+----
+{
+  "message": "StatusMessageConstant"
+}
+----
+
+.Status Message Constants
+[cols="1,2", options="header"]
+|===
+| Constant | Meaning
+
+| `SomethingWentWrong` | Generic server error
+| `EMailInUse` | Email address already registered
+| `EMailInvalid` | Invalid email format
+| `ItemNotFound` | Shopping list item not found
+| `MissingListPermission` | Insufficient permissions on list
+| `ListNotFound` | Shopping list does not exist
+| `UserNotFound` | User does not exist
+| `ContactNotFound` | Contact relationship not found
+| `PasswordIncorrect` | Wrong password during authentication
+| `PasswordResetCodeExpired` | Reset code has expired
+| `PasswordResetCodeMissing` | No reset code provided
+| `EMailVerificationLinkExpired` | Verification link has expired
+| `UserIsAlreadyVerified` | Email already verified
+| `UserHasNoEMailAddress` | No email on account
+| `ContactAlreadyAdded` | Contact already exists
+| `CannotAddYourselfAsContact` | Self-contact attempt
+| `ContactLinkExpired` | Contact share link expired
+| `ListIsOwnedByBlockedUser` | List owner is blocked
+| `NoProfilePictureFound` | No profile picture uploaded
+| `AccountAuthenticationFailed` | OAuth validation failed
+| `ListShareLinkExpired` | List share link expired
+| `ListAlreadyAdded` | List already in user's collection
+| `ListUpdateFailed` | List update operation failed
+|===
+
+'''
+
+== Users Controller (`/users`)
+
+=== `HEAD /users/test` -- Health Check
+
+No request or response body. Returns `200 OK` if the server is reachable.
+
+=== `POST /users/authenticate` -- Authenticate User
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email": "user@example.com",
+  "password": "mySecurePassword123"
+}
+----
+
+NOTE: Provide either `id` or `email` -- the server uses whichever is present.
+
+.Response `200 OK`
+[source,json]
+----
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email": "user@example.com",
+  "firstName": "Alice",
+  "lastName": "Smith",
+  "username": "alice_s",
+  "externalId": null,
+  "colorArgb": null,
+  "passwordHash": null,
+  "salt": null,
+  "role": "user",
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "isVerified": true
+}
+----
+
+.Error `400 Bad Request`
+[source,json]
+----
+{ "message": "PasswordIncorrect" }
+----
+
+=== `POST /users/register` -- Register User
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+{
+  "email": "newuser@example.com",
+  "firstName": "Bob",
+  "lastName": "Jones",
+  "username": "bob_j",
+  "password": "securePassword456"
+}
+----
+
+.Response `200 OK`
+Returns a full <<User>> object with `token` set and `isVerified: false`.
+
+Side effects: Sends a verification email to the provided address.
+
+=== `POST /users/register_apple` -- Register via Apple Sign-In
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+[
+  {
+    "email": "user@privaterelay.appleid.com",
+    "name": "Alice Smith",
+    "identityToken": "eyJraWQiOiJXNldjT0...",
+    "authorizationCode": "c1a2b3d4e5f67890...",
+    "realUserStatus": "likely",
+    "userId": "001234.abcdef1234567890.5678"
+  },
+  "fallbackPassword123"
+]
+----
+
+[cols="2,1,3", options="header"]
+|===
+| Field | Type | Description
+
+| `email` | string | May be Apple Private Relay address
+| `name` | string | User's full name (only available on first sign-in)
+| `identityToken` | string | Apple JWT identity token
+| `authorizationCode` | string | Apple authorization code
+| `realUserStatus` | string | `likely`, `unlikelyNft`, or `unknown`
+| `userId` | string | Apple user ID (unique per app)
+|===
+
+.Response `200 OK`
+Returns a <<User>> object with `externalId` set to the Apple user ID and `isVerified: true`.
+
+=== `POST /users/register_google` -- Register via Google Sign-In
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+[
+  {
+    "id": "108234567890123456789",
+    "name": "Alice Smith",
+    "givenName": "Alice",
+    "familyName": "Smith",
+    "email": "alice@gmail.com",
+    "picture": "https://lh3.googleusercontent.com/..."
+  },
+  "google-oauth-access-token",
+  "fallbackPassword456"
+]
+----
+
+.Response `200 OK`
+Returns a <<User>> object with `externalId` set to the Google user ID.
+
+=== `POST /users/register_facebook` -- Register via Facebook Sign-In
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+[
+  {
+    "email": "alice@example.com",
+    "id": "10234567890123456",
+    "last_name": "Smith",
+    "first_name": "Alice"
+  },
+  "facebook-oauth-access-token",
+  "fallbackPassword789"
+]
+----
+
+.Response `200 OK`
+Returns a <<User>> object with `externalId` set to the Facebook user ID.
+
+=== `PATCH /users/user` -- Update User Profile
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+{
+  "firstName": "Alice",
+  "lastName": "Johnson",
+  "username": "alice_johnson",
+  "email": "newemail@example.com",
+  "colorArgb": -16776961
+}
+----
+
+NOTE: Only provided (non-null) fields are updated. `passwordHash`, `salt`, and `role` are ignored.
+
+.Response
+`200 OK` with no body.
+
+=== `PATCH /users/password` -- Update Password
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+"myNewSecurePassword"
+----
+
+NOTE: The body is a plain JSON string (not an object). The password is hashed server-side using PBKDF2 with SHA-512 and a 16-byte random salt.
+
+.Response
+`200 OK` with no body.
+
+=== `DELETE /users/user` -- Delete Account
+
+icon:lock[] Authenticated
+
+No request body. Returns `200 OK`.
+
+Side effects: Removes all contacts (bidirectional), all list permissions. Does **not** delete owned lists.
+
+=== `GET /users/\{id}` -- Get User By ID
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email": "user@example.com",
+  "firstName": "Alice",
+  "lastName": "Smith",
+  "username": "alice_s",
+  "externalId": null,
+  "colorArgb": -16776961,
+  "role": "user",
+  "isVerified": true
+}
+----
+
+NOTE: Only accessible to the user themselves or admin role. `passwordHash` and `salt` are excluded.
+
+=== `POST /users/contact` -- Add Contact
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+{
+  "user": {
+    "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+    "email": "friend@example.com",
+    "firstName": "Bob",
+    "lastName": "Jones",
+    "username": "bob_j",
+    "colorArgb": null,
+    "role": "user",
+    "isVerified": true
+  },
+  "type": "Default"
+}
+----
+
+.UserContactType Enum Values
+[cols="1,2", options="header"]
+|===
+| Value | Description
+
+| `Default` | Standard contact (no sharing by default)
+| `AllowSharing` | User allows list sharing with this contact
+| `Ignored` | Contact is blocked; their lists are hidden
+|===
+
+.Response
+`200 OK` with no body. Creates a bidirectional contact relationship.
+
+=== `PATCH /users/contact` -- Update Contact
+
+icon:lock[] Authenticated
+
+Same request format as <<Add Contact>>. Updates the `type` field.
+
+=== `DELETE /users/contact/\{userId}` -- Remove Contact
+
+icon:lock[] Authenticated
+
+.Response
+`200 OK` with no body.
+
+=== `GET /users/contacts` -- Get All Contacts
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+[
+  {
+    "user": {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "email": "friend@example.com",
+      "firstName": "Bob",
+      "lastName": "Jones",
+      "username": "bob_j",
+      "colorArgb": -65536,
+      "role": "user",
+      "token": null,
+      "isVerified": true
+    },
+    "type": "AllowSharing"
+  }
+]
+----
+
+=== `POST /users/generate_share_id` -- Generate Contact Share ID
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+"abc123def456..."
+----
+
+Returns a plain string token. Expires after **2 days**.
+
+=== `POST /users/contact_share_id` -- Add Contact By Share ID
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+["abc123def456..."]
+----
+
+NOTE: Request is a JSON array (tuple) containing a single string.
+
+.Response `200 OK`
+Returns the contact's <<User>> object (without password).
+
+.Errors
+[source,json]
+----
+{ "message": "CannotAddYourselfAsContact" }
+{ "message": "ContactLinkExpired" }
+{ "message": "UserNotFound" }
+----
+
+=== `GET /users/contact_share_id/\{contactShareId}` -- Get User By Share ID
+
+icon:unlock[] Anonymous
+
+.Response `200 OK`
+Returns the <<User>> object associated with the share ID.
+
+=== `POST /users/register_fcm_token` -- Register FCM Token
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+["dGhpcyBpcyBhIGZjbSB0b2tlbg..."]
+----
+
+.Response
+`200 OK` with no body. Replaces any previous FCM token for this user.
+
+=== `POST /users/unregister_fcm_token` -- Unregister FCM Token
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+["dGhpcyBpcyBhIGZjbSB0b2tlbg..."]
+----
+
+.Response
+`200 OK` with no body.
+
+=== `POST /users/profile_picture` -- Upload Profile Picture
+
+icon:lock[] Authenticated
+
+Content-Type: `multipart/form-data`
+
+[cols="1,1,2", options="header"]
+|===
+| Part | Type | Description
+
+| `file` | binary (JPEG) | The profile picture image
+| `jsonString` | string | JSON-encoded <<ImageInfo>> object
+|===
+
+.ImageInfo JSON
+[source,json]
+----
+{
+  "x": 50,
+  "y": 30,
+  "scale": 1.5,
+  "rotation": 0.0
+}
+----
+
+.Response
+`200 OK` with no body.
+
+=== `POST /users/profile_picture_transformation` -- Update Picture Transform
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+{
+  "x": 60,
+  "y": 40,
+  "scale": 2.0,
+  "rotation": 90.0
+}
+----
+
+.Response
+`200 OK` with no body.
+
+=== `DELETE /users/profile_picture` -- Delete Profile Picture
+
+icon:lock[] Authenticated
+
+No body. Returns `200 OK`.
+
+=== `GET /users/profile_picture_lastchange` -- Get Picture Timestamps
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+[
+  {
+    "userId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "transformationLastChangeTime": "2024-03-15T10:30:00Z",
+    "imageFileLastChangeTime": "2024-03-14T08:00:00Z"
+  },
+  {
+    "userId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+    "transformationLastChangeTime": "2024-02-20T15:45:00Z",
+    "imageFileLastChangeTime": "2024-02-20T15:45:00Z"
+  }
+]
+----
+
+Returns timestamps for all associated users (contacts + users in shared lists).
+
+=== `GET /users/profile_picture_info/\{userId}` -- Get Picture Info
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+{
+  "id": "img-001",
+  "x": 50,
+  "y": 30,
+  "scale": 1.5,
+  "rotation": 0.0,
+  "lastChangeTransformationTime": "2024-03-15T10:30:00Z",
+  "lastChangeImageFileTime": "2024-03-14T08:00:00Z"
+}
+----
+
+=== `GET /users/profile_picture/\{userId}` -- Download Profile Picture
+
+icon:lock[] Authenticated
+
+Returns raw JPEG binary data with `Content-Type: image/jpeg`. Not a JSON response.
+
+'''
+
+== Shopping Controller (`/shopping`)
+
+=== `POST /shopping/list` -- Create Shopping List
+
+icon:lock[] Authenticated (Role: User)
+
+.Request
+[source,json]
+----
+{
+  "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "name": "Birthday Party",
+  "category": "Party",
+  "dateString": "2024-04-20T00:00:00",
+  "notes": "Surprise party for Carol",
+  "productList": [
+    {
+      "item": {
+        "name": "Cake",
+        "imagePath": null,
+        "category": {
+          "name": "Bakery",
+          "colorHex": "#FFB74D",
+          "imagePath": null
+        }
+      },
+      "count": 1,
+      "checked": false
+    }
+  ]
+}
+----
+
+.Response `200 OK`
+Returns the created <<ShoppingList>> object.
+
+.Side Effects
+* User becomes **owner** of the list
+* User receives `WriteAndModifyPermission`
+* `lastChangeServerTime` is set to current UTC time
+* List data is saved as a JSON file on the server filesystem
+
+=== `PATCH /shopping/list` -- Update Shopping List
+
+icon:lock[] Authenticated
+
+.Request
+Same format as <<Create Shopping List>> -- provide the full <<ShoppingList>> object with the `syncId` of the list to update.
+
+.Response
+`200 OK` with no body.
+
+=== `GET /shopping/list/\{syncID}` -- Get Shopping List
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+Returns the full <<ShoppingList>> object.
+
+=== `DELETE /shopping/list/\{syncId}` -- Delete Shopping List
+
+icon:lock[] Authenticated (Role: User)
+
+.Query Parameters
+[cols="1,1,1,2", options="header"]
+|===
+| Parameter | Type | Default | Description
+
+| `deleteForEveryone` | boolean | `false` | If `true`, deletes the list for all users (requires Delete permission). If `false`, only removes the current user's permission.
+|===
+
+.Response
+`200 OK` with no body.
+
+=== `GET /shopping/list_lastchange/\{syncID}` -- Get List Last Change Time
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+{
+  "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "lastChangeServerTime": "2024-03-15T14:22:00Z"
+}
+----
+
+Useful for checking if a list has been updated without downloading the full content.
+
+=== `GET /shopping/lists` -- Get All User's Lists
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+[
+  {
+    "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "name": "Weekly Groceries",
+    "category": "Food",
+    "dateString": "",
+    "notes": "",
+    "productList": [...]
+  },
+  {
+    "syncId": "c89d1234-abcd-5678-ef01-234567890abc",
+    "name": "Hardware Store",
+    "category": "Home",
+    "dateString": "2024-03-20T00:00:00",
+    "notes": "Check aisle 5",
+    "productList": [...]
+  }
+]
+----
+
+NOTE: Excludes lists owned by blocked (Ignored) users. Only lists where the user has at least `Read` permission.
+
+=== `GET /shopping/lists_lastchange` -- Get All Lists Last Change Times
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+[
+  {
+    "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "lastChangeServerTime": "2024-03-15T14:22:00Z"
+  },
+  {
+    "syncId": "c89d1234-abcd-5678-ef01-234567890abc",
+    "lastChangeServerTime": "2024-03-14T09:10:00Z"
+  }
+]
+----
+
+=== `PATCH /shopping/item` -- Update Item in List
+
+icon:lock[] Authenticated (Role: User)
+
+.Request
+[source,json]
+----
+{
+  "shoppingListId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "oldItemName": "Milk",
+  "newItem": {
+    "name": "Oat Milk",
+    "imagePath": null,
+    "category": {
+      "name": "Dairy Alternatives",
+      "colorHex": "#A5D6A7",
+      "imagePath": null
+    }
+  }
+}
+----
+
+.Response
+`200 OK` with no body.
+
+=== `DELETE /shopping/item` -- Remove Item from List
+
+icon:lock[] Authenticated (Role: User)
+
+.Request
+[source,json]
+----
+{
+  "shoppingListId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "itemName": "Bread"
+}
+----
+
+.Response
+`200 OK` with no body.
+
+=== `PATCH /shopping/product` -- Update Product in List
+
+icon:lock[] Authenticated (Role: User)
+
+.Request
+[source,json]
+----
+{
+  "shoppingListId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "newProduct": {
+    "item": {
+      "name": "Apples",
+      "imagePath": null,
+      "category": {
+        "name": "Fruits",
+        "colorHex": "#81C784",
+        "imagePath": null
+      }
+    },
+    "count": 6,
+    "checked": false
+  }
+}
+----
+
+.Response
+`200 OK` with no body.
+
+=== `PATCH /shopping/listproperty` -- Change List Property
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+["name", "f47ac10b-58cc-4372-a567-0e02b2c3d479", "Updated List Name"]
+----
+
+A JSON array (tuple) of `[propertyName, listId, newValue]`.
+
+.Response
+`200 OK` with no body.
+
+=== `GET /shopping/listpermission/\{listId}` -- Get All Permissions for List
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+[
+  [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Smith",
+      "username": "alice_s",
+      "colorArgb": -16776961,
+      "role": "user",
+      "isVerified": true
+    },
+    "WriteAndModifyPermission"
+  ],
+  [
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "Jones",
+      "username": "bob_j",
+      "colorArgb": null,
+      "role": "user",
+      "isVerified": true
+    },
+    "Read"
+  ]
+]
+----
+
+Returns an array of `[User, PermissionType]` tuples.
+
+[[permission-types]]
+=== Permission Types
+
+The `ShoppingListPermissionType` is a flags enum. Values can be combined.
+
+[cols="1,1,2", options="header"]
+|===
+| Value | Binary | Description
+
+| `Undefined` | `00000` | No permissions
+| `Read` | `00001` | Can view the list
+| `Write` | `00011` | Can modify list items (includes Read)
+| `Delete` | `00100` | Can delete the list
+| `AddPermission` | `01000` | Can add permissions for other users
+| `ModifyPermission` | `11000` | Can modify/remove permissions (includes AddPermission)
+| `WriteAndAddPermission` | `01011` | Write + AddPermission
+| `WriteAndModifyPermission` | `11011` | Write + ModifyPermission
+| `All` | `11111` | Full access (Write + Delete + ModifyPermission)
+|===
+
+=== `GET /shopping/listpermission` -- Get User's Permissions to All Lists
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+[
+  ["f47ac10b-58cc-4372-a567-0e02b2c3d479", "WriteAndModifyPermission"],
+  ["c89d1234-abcd-5678-ef01-234567890abc", "Read"]
+]
+----
+
+Array of `[listId, permissionType]` tuples.
+
+=== `GET /shopping/listpermission/\{listId}/\{userId}` -- Get User's Permission for Specific List
+
+icon:lock[] Authenticated (Role: User)
+
+.Response `200 OK`
+[source,json]
+----
+"WriteAndModifyPermission"
+----
+
+Returns a plain string with the permission type.
+
+=== `PUT /shopping/listpermission` -- Add or Update Permission
+
+icon:lock[] Authenticated (Role: User)
+
+.Request
+[source,json]
+----
+["b2c3d4e5-f6a7-8901-bcde-f23456789012", "f47ac10b-58cc-4372-a567-0e02b2c3d479", "Write"]
+----
+
+A JSON array (tuple) of `[targetUserId, shoppingListId, permissionType]`.
+
+Requires: The calling user must have at least `ModifyPermission` on the list.
+
+.Response
+`200 OK` with no body.
+
+=== `DELETE /shopping/listpermission/\{listId}/\{userId}` -- Remove Permission
+
+icon:lock[] Authenticated (Role: User)
+
+.Response
+`200 OK` with no body.
+
+=== `POST /shopping/generate_share_id/\{listId}` -- Generate List Share ID
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+[source,json]
+----
+"xyz789share..."
+----
+
+Returns a shareable token string.
+
+=== `POST /shopping/list_share_id` -- Add List By Share ID
+
+icon:lock[] Authenticated
+
+.Request
+[source,json]
+----
+["xyz789share..."]
+----
+
+.Response `200 OK`
+[source,json]
+----
+"f47ac10b-58cc-4372-a567-0e02b2c3d479"
+----
+
+Returns the list's `syncId`. Grants `WriteAndModifyPermission` to the calling user.
+
+.Errors
+[source,json]
+----
+{ "message": "ListNotFound" }
+{ "message": "ListShareLinkExpired" }
+{ "message": "ListAlreadyAdded" }
+----
+
+=== `GET /shopping/list_share_id/\{shareId}` -- Get List By Share ID
+
+icon:lock[] Authenticated
+
+.Response `200 OK`
+Returns the list's `syncId` as a plain string.
+
+=== `POST /shopping/test_firebase_push_message` -- Test FCM
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+["device-fcm-registration-token", "Hello from the server!"]
+----
+
+.FCM Payload Sent
+[source,json]
+----
+{
+  "body": "Hello from the server!",
+  "title": "ServiceNow",
+  "sound": "default"
+}
+----
+
+'''
+
+== Reset Password Controller (`/rp`)
+
+=== `POST /rp/requestcode` -- Request Reset Code
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+["user@example.com"]
+----
+
+.Response
+`200 OK` with no body. Sends a 5-digit code via email.
+
+=== `POST /rp/codevalid` -- Validate Reset Code
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+["user@example.com", "12345"]
+----
+
+.Response
+`200 OK` with no body if the code is valid.
+
+=== `POST /rp/resetpassword` -- Reset Password
+
+icon:unlock[] Anonymous
+
+.Request
+[source,json]
+----
+["user@example.com", "12345", "myNewSecurePassword"]
+----
+
+.Response
+`200 OK` with no body. Password is updated immediately.
+
+'''
+
+== Verify Controller (`/verify`)
+
+=== `POST /verify/resendVerificationEMail` -- Resend Verification
+
+icon:lock[] Authenticated
+
+No request body.
+
+.Response
+`200 OK` with no body.
+
+.Possible Errors
+[source,json]
+----
+{ "message": "UserIsAlreadyVerified" }
+{ "message": "UserHasNoEMailAddress" }
+----
+
+=== `GET /verify/em/\{urlCode}` -- Verify Email
+
+icon:unlock[] Anonymous
+
+Returns an HTML page (not JSON):
+
+.Success
+[source,html]
+----
+<div>Successfully registered!</div>
+----
+
+.Failure
+[source,html]
+----
+<div>Oops, something went wrong :(</div>
+----
+
+'''
+
+== SignalR Real-Time Messages
+
+The SignalR hub is available at `/shoppingserver/update`. All messages require JWT authentication.
+
+For database-level details on how entities involved in these messages are persisted, see link:database-integration.adoc#entity-models[Entity Models].
+
+=== Connection Lifecycle
+
+.Server → Client Messages
+[cols="1,3", options="header"]
+|===
+| Event | Payload
+
+| `ServerMessage` | `"Connected to {UserId}"` on connect
+| `ServerMessage` | `"Disconnected {UserId}"` on disconnect
+|===
+
+=== Shopping List Messages
+
+All shopping list messages are sent to users who have at least the specified permission level on the list. The originating user is **excluded** from receiving the message.
+
+==== `ListAdded`
+
+Sent when a list is shared with users.
+
+.Parameters
+[source]
+----
+(string userJson, string listJson)
+----
+
+.Example Payload
+[source,json]
+----
+// userJson
+{
+  "id": "a1b2c3d4-...",
+  "email": "alice@example.com",
+  "firstName": "Alice",
+  "lastName": "Smith",
+  "username": "alice_s"
+}
+
+// listJson
+{
+  "syncId": "f47ac10b-...",
+  "name": "Weekly Groceries",
+  "productList": [...]
+}
+----
+
+==== `ListUpdated`
+
+Sent when a list's content is modified.
+
+.Parameters
+[source]
+----
+(string userJson, string listJson)
+----
+
+Same format as <<ListAdded>>.
+
+==== `ListPropertyChanged`
+
+Sent when a single list property is updated.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId, string propertyName, string propertyValue)
+----
+
+.Example
+[source]
+----
+userJson: {"id": "a1b2...", "firstName": "Alice", ...}
+listSyncId: "f47ac10b-..."
+propertyName: "name"
+propertyValue: "Updated List Name"
+----
+
+==== `ListRemoved`
+
+Sent when a list is deleted or a user's access is revoked.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId)
+----
+
+==== `ListPermissionChanged`
+
+Sent when a user's permission on a list changes.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId, ShoppingListPermissionType permission)
+----
+
+`userJson` contains the user whose permission changed. All users with `Read` access receive this message.
+
+==== `ListPermissionRemoved`
+
+Sent when a user's permission on a list is removed entirely.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId)
+----
+
+==== `ItemNameChanged`
+
+Sent when an item is renamed within a list.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId, string newItemName, string oldItemName)
+----
+
+==== `ItemAddedOrUpdated`
+
+Sent when an item definition is added or modified.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId, string itemJson)
+----
+
+.itemJson Example
+[source,json]
+----
+{
+  "name": "Organic Milk",
+  "imagePath": null,
+  "category": {
+    "name": "Dairy",
+    "colorHex": "#4FC3F7",
+    "imagePath": null
+  }
+}
+----
+
+==== `ProductAddedOrUpdated`
+
+Sent when a product (item with count/checked) is added or updated.
+
+.Parameters
+[source]
+----
+(string userJson, string listSyncId, string productJson)
+----
+
+.productJson Example
+[source,json]
+----
+{
+  "item": {
+    "name": "Apples",
+    "imagePath": null,
+    "category": {
+      "name": "Fruits",
+      "colorHex": "#81C784",
+      "imagePath": null
+    }
+  },
+  "count": 5,
+  "checked": false
+}
+----
+
+=== User Messages
+
+==== `UserEMailVerified`
+
+Sent to the user when their email is successfully verified.
+
+.Parameters
+No payload -- the event name itself is the notification.
+
+==== `ContactAdded`
+
+Sent to a user when someone adds them as a contact.
+
+.Parameters
+[source]
+----
+(string contactJson)
+----
+
+.contactJson Example
+[source,json]
+----
+{
+  "id": "b2c3d4e5-...",
+  "email": "friend@example.com",
+  "firstName": "Bob",
+  "lastName": "Jones",
+  "username": "bob_j",
+  "colorArgb": -65536
+}
+----
+
+'''
+
+== File-Based JSON Storage
+
+Shopping list data is stored as JSON files on the server filesystem rather than in the database. See link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern] for details.
+
+=== Storage Path
+
+[source]
+----
+{userDataFolder}/{userId}/{syncId}.json
+----
+
+=== File Content
+
+Each JSON file contains the full <<ShoppingList>> serialized data (excluding database-only fields like `Owner`, `LastChangeServerTime`, and `ShoppingListPermissions`).
+
+.Example: `/data/a1b2c3d4-.../f47ac10b-....json`
+[source,json]
+----
+{
+  "syncId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "name": "Weekly Groceries",
+  "category": "Food",
+  "dateString": "2024-03-15T00:00:00",
+  "notes": "Don't forget the organic section",
+  "productList": [
+    {
+      "item": {
+        "name": "Milk",
+        "imagePath": null,
+        "category": {
+          "name": "Dairy",
+          "colorHex": "#4FC3F7",
+          "imagePath": null
+        }
+      },
+      "count": 2,
+      "checked": false
+    }
+  ]
+}
+----

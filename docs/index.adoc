@@ -1,0 +1,41 @@
+= Documentation Index
+:toc:
+:sectnums:
+:icons: font
+
+== Project Documentation
+
+The Shopping List Server documentation is organized across the following files:
+
+[cols="2,3", options="header"]
+|===
+| Document | Description
+
+| link:../README.adoc[README]
+| Project overview, features, setup instructions, deployment, and API endpoint summary.
+
+| link:api-json-exchange.adoc[API JSON Exchange Reference]
+| Comprehensive reference for every JSON request/response exchanged by the REST API and SignalR real-time messages. Includes examples for all endpoints.
+
+| link:database-integration.adoc[Database Integration]
+| Database architecture, entity models, hybrid storage pattern, service layer patterns, migration history, and MySQL schema.
+
+| link:../auth/README.adoc[Auth Folder]
+| Configuration of secrets, certificates, and authentication keys required for the server.
+|===
+
+== Quick Navigation
+
+=== By Topic
+
+* **Getting started** → link:../README.adoc#_setup_and_workflows[Setup and Workflows]
+* **API endpoints list** → link:../README.adoc#_api_documentation[API Documentation]
+* **Full JSON request/response formats** → link:api-json-exchange.adoc[API JSON Exchange Reference]
+* **Authentication & JWT** → link:api-json-exchange.adoc#_authentication[Authentication]
+* **Error codes** → link:api-json-exchange.adoc#_error_response[Error Response]
+* **Permission system** → link:api-json-exchange.adoc#permission-types[Permission Types]
+* **SignalR real-time events** → link:api-json-exchange.adoc#_signalr_real_time_messages[SignalR Messages]
+* **Database entities** → link:database-integration.adoc#entity-models[Entity Models]
+* **Hybrid storage (DB + filesystem)** → link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]
+* **Schema migration timeline** → link:database-integration.adoc#_migration_history[Migration History]
+* **Secrets & certificates** → link:../auth/README.adoc[Auth Folder]

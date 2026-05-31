@@ -1,6 +1,9 @@
 = Shopping List Server
 :toc:
 :sectnums:
+:icons: font
+
+TIP: Detailed documentation is available in the link:docs/index.adoc[docs/] folder, including the link:docs/api-json-exchange.adoc[API JSON Exchange Reference] and link:docs/database-integration.adoc[Database Integration] guide.
 
 == Overview
 
@@ -39,7 +42,7 @@ Launch Screen | Edit Screen | Zoom Screen
 
 == Key Concepts
 
-* **Entities and Models**:
+* **Entities and Models** (see link:docs/database-integration.adoc#entity-models[Entity Models] for full schema):
   - [`User`](Models/User.cs): Represents users with properties like email, name, color, verification status, and FCM tokens.
   - [`ShoppingList`](Models/ShoppingData/ShoppingList.cs): Core shopping list entity with items, permissions, and metadata.
   - [`ShoppingListPermission`](Models/ShoppingData/ShoppingListPermission.cs): Manages user permissions for lists.
@@ -62,11 +65,11 @@ Launch Screen | Edit Screen | Zoom Screen
   - [`VerifyController`](Controllers/VerifyController.cs): Email verification endpoints.
   - [`ShoppingHub_Controller`](Controllers/ShoppingHub_Controller.cs): SignalR hub for real-time updates.
 
-* **Database Context**: [`AppDb`](Database/AppDb.cs) manages database operations with lazy loading, UTC time conversion, and migration support.
+* **Database Context**: [`AppDb`](Database/AppDb.cs) manages database operations with lazy loading, UTC time conversion, and migration support. See link:docs/database-integration.adoc[Database Integration] for the full schema and hybrid storage architecture.
 
 * **Authentication Flow**: JWT tokens for session management with claims-based authorization. Social authentication via OAuth2 with provider-specific models (GoogleUser, FacebookProfile, AppleAccount).
 
-* **Permissions**: Enum-based flags for shopping list access, allowing combinations like WriteAndAddPermission. Permissions are checked at the service layer.
+* **Permissions**: Enum-based flags for shopping list access, allowing combinations like WriteAndAddPermission. Permissions are checked at the service layer. See link:docs/api-json-exchange.adoc#permission-types[Permission Types] for the full enum definition.
 
 * **Hubs**: SignalR hubs for real-time communication between clients and server, enabling live updates on shopping list changes.
 
@@ -154,6 +157,8 @@ curl -I https://<certbot-address>:5678/users/test
 
 === Database Setup
 
+See link:docs/database-integration.adoc[Database Integration] for complete schema documentation and migration history.
+
 - Create schema: `CREATE SCHEMA shoppinglistserver;`
 - Grant user access.
 - Migrations are applied automatically on startup. Manual update:
@@ -166,6 +171,8 @@ curl -I https://<certbot-address>:5678/users/test
   ```
 
 == API Documentation
+
+For complete JSON request/response formats with examples, see link:docs/api-json-exchange.adoc[API JSON Exchange Reference].
 
 === REST Endpoints
 
@@ -191,7 +198,7 @@ curl -I https://<certbot-address>:5678/users/test
 
 === SignalR
 
-Connect to `/shoppingserver/update` for real-time updates on shopping list changes.
+Connect to `/shoppingserver/update` for real-time updates on shopping list changes. See link:docs/api-json-exchange.adoc#_signalr_real_time_messages[SignalR Real-Time Messages] for all event types and payload formats.
 
 == Contributing
 

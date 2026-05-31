@@ -1,0 +1,901 @@
+= Database Integration
+:toc: left
+:toclevels: 4
+:sectnums:
+:icons: font
+:source-highlighter: highlight.js
+
+== Overview
+
+The Shopping List Server uses Entity Framework Core (EF Core) with a **hybrid storage** approach:
+
+* **Relational database** (MySQL or SQLite): Stores entity metadata -- users, permissions, tokens, relationships, and timestamps.
+* **Filesystem (JSON files)**: Stores shopping list content -- names, items, categories, products.
+
+This design separates the frequently-queried relational data from the document-like shopping list content, which is read and written as whole units.
+
+For the JSON formats used in API communication, see link:api-json-exchange.adoc[API JSON Exchange Reference].
+
+'''
+
+== Database Providers
+
+The server supports two database providers, switchable via configuration.
+
+=== MySQL (Production)
+
+Primary database for production and Docker deployments. Uses the https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql[Pomelo.EntityFrameworkCore.MySql] provider.
+
+.appsettings.json
+[source,json]
+----
+{
+  "AppSettings": {
+    "DbServerAddress": "server=localhost;",
+    "DbServerAddressDocker": "server=db;port=3306;",
+    "DbName": "shoppinglistserver",
+    "DbUser": "ShoppingListDBUser",
+    "DbPassword": "REPLACE_WITH_DB_PASSWORD",
+    "UseDocker": "True"
+  }
+}
+----
+
+The connection string is assembled at runtime:
+
+[source,csharp]
+----
+string dbServerAddress = appSettings.UseDocker == "False"
+    ? appSettings.DbServerAddress
+    : appSettings.DbServerAddressDocker;
+
+string connectionString = dbServerAddress +
+    "user=" + appSettings.DbUser + ";" +
+    "password=" + appSettings.DbPassword + ";" +
+    "database=" + appSettings.DbName + ";";
+
+ServerVersion version = ServerVersion.AutoDetect(connectionString);
+options.UseMySql(connectionString, version);
+----
+
+=== SQLite (Development)
+
+Used for local development when `UseSQLite` is `true` in `auth/devMode.json`.
+
+[source,csharp]
+----
+options.UseSqlite("Data Source=shoppinglist.db");
+----
+
+Creates a single file `shoppinglist.db` in the project root.
+
+=== Provider Selection Logic
+
+[source,csharp]
+----
+bool useSQLite = Configuration.GetValue<bool>("UseSQLite");
+
+if (useSQLite)
+    options.UseSqlite("Data Source=shoppinglist.db");
+else
+    options.UseMySql(connectionString, serverVersion);
+----
+
+=== NuGet Packages
+
+[cols="2,1,2", options="header"]
+|===
+| Package | Version | Purpose
+
+| `Pomelo.EntityFrameworkCore.MySql` | 7.0.0 | MySQL database provider
+| `Microsoft.EntityFrameworkCore.Sqlite` | 7.0.11 | SQLite database provider
+| `Microsoft.EntityFrameworkCore.Proxies` | 7.0.11 | Lazy loading proxy support
+| `Microsoft.EntityFrameworkCore.Design` | 7.0.11 | Migrations and scaffolding tools
+| `MySql.Data` | 8.1.0 | MySQL .NET connector
+| `Newtonsoft.Json` | 13.0.1 | JSON serialization for file storage
+|===
+
+'''
+
+== DbContext Configuration
+
+The `AppDb` class in `Database/AppDb.cs` is the central database context.
+
+=== DbSets
+
+[source,csharp]
+----
+public DbSet<User> Users { get; set; }
+public DbSet<ShoppingList> ShoppingLists { get; set; }
+----
+
+NOTE: Other entities (tokens, permissions, contacts) are accessed via `_db.Set<T>()` or through navigation properties on `User` and `ShoppingList`.
+
+=== Lazy Loading
+
+Lazy loading is enabled globally via proxy generation:
+
+[source,csharp]
+----
+options.UseLazyLoadingProxies();
+----
+
+All navigation properties are declared `virtual` to support this:
+
+[source,csharp]
+----
+public virtual List<FcmToken> FcmTokens { get; set; }
+public virtual User Owner { get; set; }
+public virtual ExpirationToken ContactShareId { get; set; }
+----
+
+This means related entities are loaded automatically when first accessed -- no explicit `.Include()` calls are needed.
+
+=== DateTime UTC Conversion
+
+All `DateTime` properties are automatically converted to UTC on save and tagged as UTC on read:
+
+[source,csharp]
+----
+var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+    v => v.ToUniversalTime(),             // writing to DB
+    v => DateTime.SpecifyKind(v, DateTimeKind.Utc));  // reading from DB
+
+// Applied to ALL DateTime properties across ALL entities:
+foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+    foreach (var property in entityType.GetProperties())
+        if (property.ClrType == typeof(DateTime))
+            property.SetValueConverter(dateTimeConverter);
+----
+
+This ensures timestamp consistency regardless of the server's local timezone.
+
+=== Character Set
+
+[source,csharp]
+----
+modelBuilder.HasCharSet(null, true);  // UTF-8 support
+----
+
+'''
+
+[[entity-models]]
+== Entity Models
+
+=== Entity Relationship Diagram
+
+[source]
+----
+┌──────────────────────┐
+│        User          │
+│  PK: Id (GUID)       │
+├──────────────────────┤
+│  EMail               │
+│  FirstName           │
+│  LastName             │
+│  Username             │
+│  ExternalId           │
+│  ColorArgb            │
+│  PasswordHash         │
+│  Salt                 │
+│  Role                 │
+│  Token                │
+│  IsVerified           │
+├──────────────────────┤
+│  FK: ContactShareIdId │──── 1:1 ──── ExpirationToken
+│  FK: ProfilePicInfoId │──── 1:1 ──── ImageInfo
+├──────────────────────┤
+│  1:n → FcmToken       │
+│  1:n → PasswordAccess  │
+│  1:n → EMailVerifToken │
+│  1:n → ResetPwdToken   │
+│  1:n → ShoppingList    │ (as Owner)
+└────────┬─────────────┘
+         │
+    n:n (via ShoppingListPermission)
+         │
+┌────────┴─────────────┐
+│    ShoppingList       │
+│  PK: SyncId (GUID)    │
+├──────────────────────┤
+│  LastChangeServerTime │
+│  FK: OwnerId         │──── n:1 ──── User
+│  FK: ShareIdId        │──── 1:1 ──── ExpirationToken
+├──────────────────────┤
+│  [NotMapped] Name     │
+│  [NotMapped] Category │  ← Stored as JSON files
+│  [NotMapped] Notes    │
+│  [NotMapped] Products │
+└──────────────────────┘
+
+User ──── n:n (via UserContact) ──── User
+----
+
+=== User
+
+[cols="2,1,1,3", options="header"]
+|===
+| Property | Type | DB Column | Notes
+
+| `Id` | string | `varchar(255)` PK | GUID, `[Key, Required]`
+| `EMail` | string | nullable | Used for authentication
+| `FirstName` | string | nullable |
+| `LastName` | string | nullable |
+| `Username` | string | nullable | `[Unicode(true)]` for international support
+| `ExternalId` | string | nullable | Apple/Google/Facebook user ID
+| `ColorArgb` | int? | nullable | `System.Drawing.Color.ToArgb()` value
+| `Color` | Color? | _not mapped_ | Computed from `ColorArgb`
+| `PasswordHash` | string | nullable | PBKDF2-SHA512 hash
+| `Salt` | byte[] | `varbinary(16)` | `[MaxLength(16)]`
+| `Role` | string | not null | Default: `"user"`, `[JsonIgnore]`
+| `Token` | string | nullable | JWT bearer token
+| `IsVerified` | bool | not null | Default: `false`
+|===
+
+.Navigation Properties
+[cols="2,2,2", options="header"]
+|===
+| Property | Type | Relationship
+
+| `FcmTokens` | `List<FcmToken>` | 1:n
+| `AlternativePasswords` | `List<PasswordAccess>` | 1:n
+| `ContactShareId` | `ExpirationToken` | 1:1 (FK: `ContactShareIdId`)
+| `EMailVerificationTokens` | `List<EMailVerificationToken>` | 1:n
+| `ResetPasswordTokens` | `List<ResetPasswordToken>` | 1:n
+| `ShoppingListPermissions` | `List<ShoppingListPermission>` | 1:n
+| `UserContactsThis` | `List<UserContact>` | 1:n (as source)
+| `UserContactsOthers` | `List<UserContact>` | 1:n (as target)
+| `ProfilePictureInfo` | `ImageInfo` | 1:1 (FK: `ProfilePictureInfoId`)
+|===
+
+=== ShoppingList
+
+[cols="2,1,1,3", options="header"]
+|===
+| Property | Type | DB Column | Notes
+
+| `SyncId` | string | `varchar(255)` PK | GUID, generated by client
+| `LastChangeServerTime` | DateTime | `datetime(6)` | Auto-updated on changes, `[JsonIgnore]`
+| `OwnerId` | string | FK → Users.Id | `[Restrict]` on delete
+| `ShareIdId` | string | FK → ExpirationToken.Id | nullable
+|===
+
+.Not Mapped Properties (stored as JSON files)
+[cols="2,1,2", options="header"]
+|===
+| Property | Type | Description
+
+| `Name` | string | List display name
+| `Category` | string | List category
+| `DateString` | string | ISO 8601 date or empty
+| `Date` | DateTime | Parsed from DateString, `[JsonIgnore]`
+| `Notes` | string | List notes
+| `ProductList` | `List<GenericProduct>` | Shopping items
+|===
+
+See link:api-json-exchange.adoc#_shoppinglist[ShoppingList JSON format] for the serialized structure.
+
+=== ShoppingListPermission (Join Table)
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `ShoppingListId` | string | Composite PK, FK → ShoppingLists.SyncId
+| `UserId` | string | Composite PK, FK → Users.Id
+| `PermissionType` | `ShoppingListPermissionType` | Flags enum
+|===
+
+.Composite Primary Key Configuration
+[source,csharp]
+----
+modelBuilder.Entity<ShoppingListPermission>()
+    .HasKey(e => new { e.ShoppingListId, e.UserId });
+----
+
+.On Delete: Cascade
+Both foreign keys cascade on delete.
+
+For the permission flags enum values, see link:api-json-exchange.adoc#permission-types[Permission Types].
+
+=== UserContact (Self-Join Table)
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `UserSourceId` | string | Composite PK, FK → Users.Id (initiator)
+| `UserTargetId` | string | Composite PK, FK → Users.Id (target)
+| `UserContactType` | `UserContactType` | Enum: `Default`, `AllowSharing`, `Ignored`
+|===
+
+.Foreign Key Configuration
+[source,csharp]
+----
+modelBuilder.Entity<UserContact>()
+    .HasKey(e => new { e.UserSourceId, e.UserTargetId });
+
+modelBuilder.Entity<UserContact>()
+    .HasOne(e => e.UserSource)
+    .WithMany(u => u.UserContactsThis)
+    .HasForeignKey(e => e.UserSourceId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+modelBuilder.Entity<UserContact>()
+    .HasOne(e => e.UserTarget)
+    .WithMany(u => u.UserContactsOthers)
+    .HasForeignKey(e => e.UserTargetId)
+    .OnDelete(DeleteBehavior.Cascade);
+----
+
+=== ExpirationToken
+
+Reusable token entity for both contact sharing and list sharing.
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `Id` | string | PK, `[DatabaseGenerated(Identity)]`
+| `Data` | string | Generic data storage
+| `ExpirationTime` | DateTime | UTC expiration timestamp
+|===
+
+.Usage
+[source,csharp]
+----
+// Check expiration
+bool expired = token.IsExpired();  // ExpirationTime < DateTime.UtcNow
+
+// Used by:
+// - User.ContactShareId (contact sharing, 2-day expiration)
+// - ShoppingList.ShareId (list sharing)
+----
+
+=== EMailVerificationToken
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `Id` | string | PK, `[DatabaseGenerated(Identity)]`
+| `UserId` | string | FK → Users.Id, `[Restrict]` delete
+| `UrlCode` | string | Unique code sent in verification email
+| `ExpirationTime` | DateTime | 30 days from creation
+|===
+
+=== ResetPasswordToken
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `Id` | string | PK, `[DatabaseGenerated(Identity)]`
+| `UserId` | string | FK → Users.Id, `[Restrict]` delete
+| `Code` | string | 5-digit numeric code sent via email
+| `ExpirationTime` | DateTime | 30 days from creation
+|===
+
+=== FcmToken
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `UserId` | string | Composite PK, FK → Users.Id
+| `Token` | string | Composite PK, Firebase device token
+|===
+
+=== PasswordAccess
+
+Alternative passwords created via social media authentication fallback.
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `Id` | string | PK, `[DatabaseGenerated(Identity)]`
+| `UserId` | string | FK → Users.Id
+| `PasswordHash` | string | PBKDF2-SHA512 hash
+| `Salt` | byte[] | `[MaxLength(16)]`, 16-byte random salt
+|===
+
+=== ImageInfo
+
+Profile picture transformation data.
+
+[cols="2,1,3", options="header"]
+|===
+| Property | Type | Notes
+
+| `Id` | string | PK, `[DatabaseGenerated(Identity)]`
+| `X` | int | Image crop X offset
+| `Y` | int | Image crop Y offset
+| `Scale` | double | Zoom level
+| `Rotation` | double | Rotation in degrees
+| `LastChangeTransformationTime` | DateTime | Last transform update
+| `LastChangeImageFileTime` | DateTime | Last image file upload
+|===
+
+'''
+
+[[hybrid-storage]]
+== Hybrid Storage Pattern
+
+The server uses a split storage approach for shopping lists:
+
+[source]
+----
+                    ┌─────────────────────────┐
+                    │     ShoppingList         │
+                    ├─────────────────────────┤
+   Database ───────►│  SyncId (PK)             │
+   (MySQL/SQLite)   │  LastChangeServerTime    │
+                    │  OwnerId (FK)            │
+                    │  ShareIdId (FK)           │
+                    │  ShoppingListPermissions  │
+                    ├─────────────────────────┤
+   Filesystem ─────►│  Name                    │
+   (JSON files)     │  Category                │
+                    │  DateString              │
+                    │  Notes                   │
+                    │  ProductList             │
+                    └─────────────────────────┘
+----
+
+=== Why Hybrid?
+
+* Shopping list content (items, categories, notes) is **document-like** -- read and written as a whole unit.
+* Metadata (permissions, timestamps, ownership) requires **relational queries** -- joins, filters, permission checks.
+
+=== File Storage Service
+
+The `ShoppingListStorageService` handles JSON file operations:
+
+[source,csharp]
+----
+public ShoppingList Load_ShoppingList(string userId, string shoppingListId)
+{
+    string filePath = Path.Combine(
+        _filesystemService.GetUserFolderPath(userId),
+        shoppingListId + ".json");
+
+    string content = File.ReadAllText(filePath);
+    return JsonConvert.DeserializeObject<ShoppingList>(content);
+}
+----
+
+.File Path Structure
+[source]
+----
+{dataRoot}/
+  └── {userId}/
+      ├── f47ac10b-58cc-4372-a567-0e02b2c3d479.json
+      ├── c89d1234-abcd-5678-ef01-234567890abc.json
+      └── profile_picture.jpg
+----
+
+=== Filesystem Service
+
+The `FilesystemService` manages user data folders:
+
+* Creates user-specific directories on registration
+* Provides path resolution for user data files
+* Handles profile picture storage alongside list JSON files
+
+'''
+
+== Service Layer Database Access
+
+Services receive `AppDb` via dependency injection and use it directly.
+
+=== Pattern: Direct DbContext
+
+[source,csharp]
+----
+public class UserService : IUserService
+{
+    private readonly AppDb _db;
+
+    public UserService(AppDb db)
+    {
+        _db = db;
+    }
+
+    public User GetById(string id)
+    {
+        return _db.Users.SingleOrDefault(x => x.Id == id);
+    }
+
+    public bool AddUser(User newUser, string password)
+    {
+        // Validation...
+        _db.Users.Add(newUser);
+        _db.SaveChanges();
+        return true;
+    }
+}
+----
+
+=== Extension Methods
+
+`AppDbExtensions` provides convenience methods for common queries:
+
+[source,csharp]
+----
+// Find by ID or throw UserNotFoundException
+public static User FindUser_ID(this AppDb db, string id)
+{
+    var user = db.Users.SingleOrDefault(u => u.Id == id);
+    if (user == null) throw new UserNotFoundException();
+    return user;
+}
+
+// Find by email or throw UserNotFoundException
+public static User FindUser_EMail(this AppDb db, string email)
+{
+    var user = db.Users.SingleOrDefault(u => u.EMail == email);
+    if (user == null) throw new UserNotFoundException();
+    return user;
+}
+
+// Find by ID or email (whichever is provided)
+public static User FindUser(this AppDb db, string id, string email)
+----
+
+=== Complex LINQ Queries
+
+The `ShoppingService` uses complex join queries to filter lists based on permissions and blocked users:
+
+[source,csharp]
+----
+var query = from list in _db.Set<ShoppingList>()
+            join perm in _db.Set<ShoppingListPermission>()
+                on list.SyncId equals perm.ShoppingListId
+            join contact in _db.Set<UserContact>()
+                on new { Source = userId, Target = list.OwnerId }
+                equals new { Source = contact.UserSourceId, Target = contact.UserTargetId }
+                into contactGroup
+            from contact in contactGroup.DefaultIfEmpty()  // LEFT JOIN
+            where perm.UserId == userId
+                && perm.PermissionType.HasFlag(ShoppingListPermissionType.Read)
+                && (contact == null
+                    || contact.UserContactType != UserContactType.Ignored)
+            select list;
+----
+
+This query:
+
+1. Joins shopping lists with their permissions
+2. Left-joins with user contacts to check blocking status
+3. Filters for the current user's permissions
+4. Excludes lists from blocked (Ignored) users
+
+=== Transaction Handling
+
+The project uses **implicit transactions** via `SaveChanges()`:
+
+[source,csharp]
+----
+// Single transaction per logical operation
+_db.Users.Add(newUser);
+_db.SaveChanges();  // Wrapped in an implicit transaction
+
+// Multiple SaveChanges = separate transactions
+user.IsVerified = true;
+_db.SaveChanges();  // Transaction 1
+
+user.Token = newToken;
+_db.SaveChanges();  // Transaction 2
+----
+
+No explicit `BeginTransaction()` / `CommitTransaction()` calls are used.
+
+'''
+
+== Dependency Injection Setup
+
+Database services are registered in `Startup.cs`:
+
+[source,csharp]
+----
+// DbContext pool for connection reuse
+services.AddDbContextPool<AppDb>(options => {
+    options.UseLazyLoadingProxies();
+
+    if (useSQLite)
+        options.UseSqlite("Data Source=shoppinglist.db");
+    else
+        options.UseMySql(connectionString, serverVersion);
+
+    options.EnableDetailedErrors();
+    if (env.IsDevelopment())
+        options.EnableSensitiveDataLogging();
+});
+
+// Application services
+services.AddScoped<IUserService, UserService>();
+services.AddScoped<IShoppingService, ShoppingService>();
+services.AddScoped<IAuthenticationService, AuthenticationService>();
+services.AddScoped<IShoppingHub, ShoppingHubService>();
+services.AddScoped<IUserHub, UserHubService>();
+----
+
+`AddDbContextPool` reuses `AppDb` instances across requests for better performance.
+
+'''
+
+== Automatic Migration
+
+Migrations are applied automatically when the application starts:
+
+[source,csharp]
+----
+// In Startup.Configure()
+using (var serviceScope = app.ApplicationServices
+    .GetService<IServiceScopeFactory>()
+    .CreateScope())
+{
+    var context = serviceScope.ServiceProvider.GetRequiredService<AppDb>();
+    context.Database.Migrate();
+}
+----
+
+=== Manual Migration Commands
+
+.Create a new migration
+[source,bash]
+----
+dotnet ef migrations add <MigrationName>
+----
+
+.Apply migrations manually
+[source,bash]
+----
+dotnet ef database update
+----
+
+'''
+
+== Migration History
+
+The schema has evolved through {migration-count} migrations since April 2021:
+
+[cols="1,2,3", options="header"]
+|===
+| Date | Migration | Changes
+
+| 2021-04-03 | `InitialCreate`
+| Created `Users` table (int ID with auto-increment, GUID, Email, FirstName, LastName, Username, Password, Role, Token)
+
+| 2021-04-11 | `AddShoppingListsAndPermissions`
+| Changed `User.Id` from int to string (GUID). Created `ShoppingLists` table. Created `ShoppingListPermission` join table.
+
+| 2021-05-15 | `ShoppingListIdToSyncId`
+| Renamed `ShoppingLists.Id` → `ShoppingLists.SyncId`
+
+| 2021-06-19 | `UserPasswordHash`
+| Renamed `User.Password` → `User.PasswordHash`. Added `User.Salt` (`varbinary(16)`)
+
+| 2022-01-08 | `AddEMailVerification`
+| Added `User.IsVerified`. Created `EMailVerificationToken` table. CharSet updates to `utf8mb4`.
+
+| 2022-03-13 | `AddUserContacts`
+| Created `UserContact` table (n:n self-join with `UserContactType` enum)
+
+| 2022-03-18 | `AddUserColor`
+| Added `User.ColorArgb` (nullable int)
+
+| 2022-04-08 | `AddOwnerToLists`
+| Added `ShoppingLists.OwnerId` (FK → Users.Id, Restrict delete)
+
+| 2022-04-13 | `AddResetPasswordToken`
+| Created `ResetPasswordToken` table (5-digit code, 30-day expiration)
+
+| 2022-05-14 | `AddContactShareId`
+| Created `ExpirationToken` table. Added `User.ContactShareIdId` FK.
+
+| 2022-05-22 | `AddListShareId`
+| Added `ShoppingList.ShareIdId` (FK → ExpirationToken.Id)
+
+| 2022-06-05 | `AddLastChangeServerTime`
+| Added `ShoppingList.LastChangeServerTime` (`datetime(6)`)
+
+| 2022-06-10 | `AddFcmTokenToUser`
+| Added `User.FcmToken` (single string field)
+
+| 2022-06-17 | `AddUnicodeSupportForUsername`
+| Empty migration (Unicode already supported via `[Unicode(true)]`)
+
+| 2022-07-12 | `AddImageInfo`
+| Created `ImageInfo` table. Added `User.ProfilePictureInfoId` FK.
+
+| 2023-02-11 | `AddAlternativePasswords`
+| Created `PasswordAccess` table for social login fallback passwords
+
+| 2023-04-15 | `AddExternalIdToUser`
+| Added `User.ExternalId` (nullable string) for OAuth provider IDs
+
+| 2023-08-03 | `MakeUserFcmTokensList`
+| Migrated `User.FcmToken` (single string) → `FcmToken` table (1:n). SQL migration preserved existing tokens.
+
+| 2023-10-03 | `FcmTokensPrimaryKey`
+| Changed `FcmToken` PK from single ID to composite `(UserId, Token)`
+|===
+
+'''
+
+== Database Schema (MySQL)
+
+.Complete MySQL schema
+[source,sql]
+----
+CREATE SCHEMA shoppinglistserver CHARACTER SET utf8mb4;
+
+-- Core tables
+CREATE TABLE Users (
+    Id          VARCHAR(255) NOT NULL PRIMARY KEY,
+    EMail       VARCHAR(255) NULL,
+    FirstName   LONGTEXT NULL,
+    LastName    LONGTEXT NULL,
+    Username    VARCHAR(255) NULL,          -- Unicode support
+    ExternalId  LONGTEXT NULL,
+    ColorArgb   INT NULL,
+    PasswordHash LONGTEXT NULL,
+    Salt        VARBINARY(16) NULL,
+    Role        LONGTEXT NOT NULL DEFAULT 'user',
+    Token       LONGTEXT NULL,
+    IsVerified  TINYINT(1) NOT NULL DEFAULT 0,
+    ContactShareIdId VARCHAR(255) NULL,     -- FK → ExpirationToken
+    ProfilePictureInfoId VARCHAR(255) NULL  -- FK → ImageInfo
+);
+
+CREATE TABLE ShoppingLists (
+    SyncId               VARCHAR(255) NOT NULL PRIMARY KEY,
+    LastChangeServerTime DATETIME(6) NOT NULL,
+    OwnerId              VARCHAR(255) NULL,     -- FK → Users (RESTRICT)
+    ShareIdId            VARCHAR(255) NULL      -- FK → ExpirationToken
+);
+
+-- Join tables
+CREATE TABLE ShoppingListPermission (
+    ShoppingListId VARCHAR(255) NOT NULL,   -- FK → ShoppingLists
+    UserId         VARCHAR(255) NOT NULL,   -- FK → Users
+    PermissionType INT NOT NULL,            -- Flags enum
+    PRIMARY KEY (ShoppingListId, UserId)
+);
+
+CREATE TABLE UserContact (
+    UserSourceId    VARCHAR(255) NOT NULL,  -- FK → Users
+    UserTargetId    VARCHAR(255) NOT NULL,  -- FK → Users
+    UserContactType INT NOT NULL,           -- Enum
+    PRIMARY KEY (UserSourceId, UserTargetId)
+);
+
+-- Token tables
+CREATE TABLE ExpirationToken (
+    Id             VARCHAR(255) NOT NULL PRIMARY KEY,
+    Data           LONGTEXT NULL,
+    ExpirationTime DATETIME(6) NOT NULL
+);
+
+CREATE TABLE EMailVerificationToken (
+    Id             VARCHAR(255) NOT NULL PRIMARY KEY,
+    UserId         VARCHAR(255) NOT NULL,   -- FK → Users (RESTRICT)
+    UrlCode        LONGTEXT NULL,
+    ExpirationTime DATETIME(6) NOT NULL
+);
+
+CREATE TABLE ResetPasswordToken (
+    Id             VARCHAR(255) NOT NULL PRIMARY KEY,
+    UserId         VARCHAR(255) NOT NULL,   -- FK → Users (RESTRICT)
+    Code           LONGTEXT NULL,
+    ExpirationTime DATETIME(6) NOT NULL
+);
+
+-- Supporting tables
+CREATE TABLE FcmToken (
+    UserId VARCHAR(255) NOT NULL,           -- FK → Users
+    Token  VARCHAR(255) NOT NULL,
+    PRIMARY KEY (UserId, Token)
+);
+
+CREATE TABLE PasswordAccess (
+    Id           VARCHAR(255) NOT NULL PRIMARY KEY,
+    UserId       VARCHAR(255) NOT NULL,     -- FK → Users
+    PasswordHash LONGTEXT NULL,
+    Salt         VARBINARY(16) NULL
+);
+
+CREATE TABLE ImageInfo (
+    Id                          VARCHAR(255) NOT NULL PRIMARY KEY,
+    X                           INT NOT NULL,
+    Y                           INT NOT NULL,
+    Scale                       DOUBLE NOT NULL,
+    Rotation                    DOUBLE NOT NULL,
+    LastChangeTransformationTime DATETIME(6) NOT NULL,
+    LastChangeImageFileTime     DATETIME(6) NOT NULL
+);
+----
+
+'''
+
+== Practical Examples
+
+=== Example: User Registration Flow (Database Perspective)
+
+[source]
+----
+1. Client POST /users/register
+   └── UserService.AddUser()
+       ├── Check email not in use → SELECT * FROM Users WHERE EMail = ?
+       ├── Generate GUID for Id
+       ├── Hash password (PBKDF2-SHA512 + 16-byte salt)
+       ├── INSERT INTO Users (Id, EMail, FirstName, ..., Salt, PasswordHash)
+       ├── SaveChanges()
+       └── Send verification email
+           └── INSERT INTO EMailVerificationToken (UserId, UrlCode, ExpirationTime)
+           └── SaveChanges()
+
+2. User clicks verification link
+   └── GET /verify/em/{urlCode}
+       ├── SELECT * FROM EMailVerificationToken WHERE UrlCode = ?
+       ├── UPDATE Users SET IsVerified = 1 WHERE Id = ?
+       └── SaveChanges()
+----
+
+=== Example: Sharing a Shopping List (Database Perspective)
+
+[source]
+----
+1. Owner creates list
+   └── POST /shopping/list
+       ├── INSERT INTO ShoppingLists (SyncId, OwnerId, LastChangeServerTime)
+       ├── INSERT INTO ShoppingListPermission
+       │   (ShoppingListId, UserId, PermissionType = WriteAndModifyPermission)
+       ├── SaveChanges()
+       └── Write JSON file to filesystem: {userId}/{syncId}.json
+
+2. Owner generates share link
+   └── POST /shopping/generate_share_id/{listId}
+       ├── INSERT INTO ExpirationToken (Data = listId, ExpirationTime = +2 days)
+       ├── UPDATE ShoppingLists SET ShareIdId = {tokenId}
+       └── SaveChanges()
+
+3. Friend uses share link
+   └── POST /shopping/list_share_id
+       ├── SELECT * FROM ExpirationToken WHERE Id = ?
+       ├── Check expiration
+       ├── INSERT INTO ShoppingListPermission
+       │   (ShoppingListId, UserId, PermissionType = WriteAndModifyPermission)
+       ├── SaveChanges()
+       └── Copy JSON file to friend's folder: {friendId}/{syncId}.json
+----
+
+=== Example: Querying Lists with Permission and Block Filtering
+
+[source,csharp]
+----
+// Get all lists for a user, excluding lists from blocked contacts
+var lists = (from list in _db.Set<ShoppingList>()
+
+             // Join with permissions to check user access
+             join perm in _db.Set<ShoppingListPermission>()
+                 on list.SyncId equals perm.ShoppingListId
+
+             // Left join with contacts to check block status
+             join contact in _db.Set<UserContact>()
+                 on new { Source = userId, Target = list.OwnerId }
+                 equals new { Source = contact.UserSourceId,
+                              Target = contact.UserTargetId }
+                 into contactGroup
+             from contact in contactGroup.DefaultIfEmpty()
+
+             // Filter conditions
+             where perm.UserId == userId
+                 && perm.PermissionType.HasFlag(ShoppingListPermissionType.Read)
+                 && (contact == null
+                     || contact.UserContactType != UserContactType.Ignored)
+             select list)
+            .ToList();
+----
