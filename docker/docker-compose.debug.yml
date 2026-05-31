@@ -1,0 +1,25 @@
+# Docker Compose override for local development / debugging.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+services:
+  db:
+    ports:
+      - "3306:3306"   # expose DB for local tools
+
+  shoppinglistserver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: build-env          # stop at SDK stage for hot-reload
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      AppSettings__UseHttpsRedirect: "False"
+      UseFirebase: "false"
+    volumes:
+      - ..:/src                  # mount source for hot-reload
+      - shoppingdata:/app/data
+    entrypoint: ["dotnet", "watch", "run", "--project", "/src/WebApi.csproj", "--urls", "http://+:5678"]
+    ports:
+      - "5678:5678"
+
+volumes:
+  shoppingdata:

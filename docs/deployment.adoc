@@ -1,0 +1,373 @@
+= Deployment Guide
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: highlight.js
+
+== Overview
+
+The Shopping List Server supports three deployment modes:
+
+[cols="1,2,2", options="header"]
+|===
+| Mode | When to use | Files
+
+| Docker Compose
+| Single-server or VPS deployments
+| `docker/`
+
+| Kubernetes
+| Multi-node clusters, cloud-managed Kubernetes
+| `k8s/`
+
+| Bare-metal .NET
+| Development without containers
+| See link:../README.adoc#_local_server_setup[Local Server Setup]
+|===
+
+All sensitive configuration (passwords, JWT secrets, API keys) is kept out of image layers and injected via environment variables or Kubernetes Secrets.
+
+For API and database architecture details, see link:api-json-exchange.adoc[API JSON Exchange Reference] and link:database-integration.adoc[Database Integration].
+
+'''
+
+== Docker
+
+All Docker files live in the `docker/` folder.
+
+[source]
+----
+docker/
+├── .env.example              # Environment variable template
+├── Dockerfile                # Multi-stage production image
+├── docker-compose.yml        # Production compose
+└── docker-compose.debug.yml  # Development override (hot-reload)
+----
+
+=== Dockerfile Improvements
+
+The updated Dockerfile fixes several issues from the original:
+
+[cols="1,2", options="header"]
+|===
+| Change | Reason
+
+| Multi-stage build with named stages
+| Cleaner layer caching; debug compose can target the SDK stage
+
+| Single `ENTRYPOINT` (no dual `CMD`)
+| Original had two `CMD` lines -- only the last one executed, so EF migration never ran. Migrations are handled by the app at startup (`context.Database.Migrate()` in `Startup.Configure()`).
+
+| Non-root user (`appuser`)
+| Principle of least privilege -- the container process no longer runs as root
+
+| `HEALTHCHECK` instruction
+| Docker and orchestrators can detect unhealthy containers
+
+| No hardcoded Firebase path
+| `GOOGLE_APPLICATION_CREDENTIALS` is injected via environment variable
+|===
+
+=== Quick Start
+
+[source,bash]
+----
+cd docker/
+
+# 1. Create .env from template
+cp .env.example .env
+
+# 2. Edit .env — at minimum set DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET
+nano .env
+
+# 3. Build and start
+docker compose up --build -d
+
+# 4. Verify
+curl -I http://localhost:5678/users/test
+# Expected: HTTP/1.1 200 OK
+
+# 5. View logs
+docker compose logs -f shoppinglistserver
+----
+
+=== Development Mode (Hot-Reload)
+
+[source,bash]
+----
+cd docker/
+
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+----
+
+This mounts the source code into the container and runs `dotnet watch`, so code changes are automatically compiled and the server restarts.
+
+=== Environment Variables
+
+All application settings can be overridden via `AppSettings__<key>` environment variables (ASP.NET Core's `__` separator maps to JSON nesting).
+
+.docker/.env.example
+[source,properties]
+----
+# Database
+DB_PASSWORD=...
+DB_ROOT_PASSWORD=...
+DB_NAME=shoppinglistserver
+DB_USER=ShoppingListDBUser
+
+# JWT
+JWT_SECRET=...
+
+# Email
+NOREPLY_EMAIL_PASSWORD=...
+
+# Firebase (optional)
+USE_FIREBASE=false
+GOOGLE_APPLICATION_CREDENTIALS=/app/auth/firebase-adminsdk.json
+
+# TLS
+USE_HTTPS_REDIRECT=False
+----
+
+=== TLS Certificates
+
+To enable HTTPS, uncomment the volume mounts in `docker-compose.yml` and set `USE_HTTPS_REDIRECT=True`:
+
+[source,yaml]
+----
+volumes:
+  - type: bind
+    source: /etc/letsencrypt/kestrel/
+    target: /app/auth/cert-files/
+    read_only: true
+----
+
+=== Data Persistence
+
+[cols="1,2", options="header"]
+|===
+| Volume | Contents
+
+| `dbdata`
+| MySQL data directory (`/var/lib/mysql`)
+
+| `shoppingdata`
+| Shopping list JSON files and user profile pictures (`/app/data`)
+|===
+
+Both volumes survive `docker compose down`. To fully reset, run `docker compose down -v`.
+
+'''
+
+== Kubernetes
+
+All Kubernetes manifests live in the `k8s/` folder.
+
+[source]
+----
+k8s/
+├── namespace.yaml        # shopping-list namespace
+├── secrets.yaml          # Sensitive credentials (template)
+├── configmap.yaml        # Non-sensitive configuration
+├── pvc.yaml              # Persistent volume claims (MySQL + app data)
+├── mysql.yaml            # MySQL StatefulSet + Service
+├── deployment.yaml       # API server Deployment + Service
+├── ingress.yaml          # Optional Ingress (nginx example)
+├── hpa.yaml              # Horizontal Pod Autoscaler
+├── pdb.yaml              # Pod Disruption Budget
+└── networkpolicy.yaml    # Network isolation rules
+----
+
+=== Architecture
+
+[source]
+----
+                    ┌──────────────────────────┐
+                    │      Ingress (nginx)      │
+                    │  shopping-api.example.com │
+                    └───────────┬──────────────┘
+                                │ :5678
+                    ┌───────────▼──────────────┐
+                    │  Deployment (1-5 replicas)│
+                    │  shopping-list-server     │
+                    │  ┌─────────────────────┐  │
+                    │  │ init: wait-for-mysql │  │
+                    │  │ app: dotnet API      │  │
+                    │  └─────────────────────┘  │
+                    │  PVC: shopping-data (5Gi) │
+                    └───────────┬──────────────┘
+                                │ :3306
+                    ┌───────────▼──────────────┐
+                    │  StatefulSet (1 replica)  │
+                    │  mysql                    │
+                    │  PVC: mysql-data (5Gi)    │
+                    └──────────────────────────┘
+----
+
+=== Deployment Steps
+
+==== 1. Create Namespace
+
+[source,bash]
+----
+kubectl apply -f k8s/namespace.yaml
+----
+
+==== 2. Configure Secrets
+
+Edit `k8s/secrets.yaml` with real values, then apply:
+
+[source,bash]
+----
+# Edit secrets
+nano k8s/secrets.yaml
+
+# Apply
+kubectl apply -f k8s/secrets.yaml
+----
+
+WARNING: `secrets.yaml` contains placeholder values. Never commit real secrets to version control. In production, use https://sealed-secrets.netlify.app/[Sealed Secrets], https://external-secrets.io/[External Secrets Operator], or your cloud provider's secret manager.
+
+==== 3. Apply ConfigMap
+
+[source,bash]
+----
+kubectl apply -f k8s/configmap.yaml
+----
+
+==== 4. Create Storage
+
+[source,bash]
+----
+kubectl apply -f k8s/pvc.yaml
+----
+
+Adjust `storage` sizes in `pvc.yaml` based on expected data volume. Default is 5Gi each.
+
+==== 5. Deploy MySQL
+
+[source,bash]
+----
+kubectl apply -f k8s/mysql.yaml
+
+# Wait for MySQL to be ready
+kubectl -n shopping-list wait --for=condition=ready pod -l app.kubernetes.io/name=mysql --timeout=120s
+----
+
+==== 6. Deploy the API Server
+
+[source,bash]
+----
+# Build and push the image to your registry
+docker build -t ghcr.io/youruser/shopping-list-server:latest -f docker/Dockerfile .
+docker push ghcr.io/youruser/shopping-list-server:latest
+
+# Update the image reference in deployment.yaml, then apply
+kubectl apply -f k8s/deployment.yaml
+
+# Verify
+kubectl -n shopping-list get pods
+kubectl -n shopping-list logs -f deployment/shopping-list-server
+----
+
+==== 7. Optional: Ingress, HPA, PDB, NetworkPolicy
+
+[source,bash]
+----
+# Ingress — edit host in ingress.yaml first
+kubectl apply -f k8s/ingress.yaml
+
+# Horizontal Pod Autoscaler (requires metrics-server)
+kubectl apply -f k8s/hpa.yaml
+
+# Pod Disruption Budget
+kubectl apply -f k8s/pdb.yaml
+
+# Network Policy (requires a CNI that supports it, e.g. Calico, Cilium)
+kubectl apply -f k8s/networkpolicy.yaml
+----
+
+==== All-in-one Apply
+
+[source,bash]
+----
+kubectl apply -f k8s/
+----
+
+=== Key Design Decisions
+
+[cols="1,3", options="header"]
+|===
+| Decision | Rationale
+
+| MySQL as StatefulSet
+| Databases need stable identity and persistent storage. For production scale, consider a managed database (RDS, Cloud SQL) instead.
+
+| Single API replica by default
+| The app stores shopping list JSON on local PVC. Scaling beyond 1 replica requires shared storage (NFS, EFS) or migrating to full database storage. The HPA is provided for when that migration happens.
+
+| Init container `wait-for-mysql`
+| The API runs migrations at startup. If MySQL isn't ready, the app crashes. The init container blocks until MySQL responds on port 3306.
+
+| Non-root security context
+| `runAsNonRoot: true, runAsUser: 1000` — defense in depth.
+
+| Network Policy
+| Restricts traffic to only what's needed: inter-pod, ingress, SMTP (587), HTTPS (443).
+
+| No TLS termination in-pod
+| TLS is handled at the Ingress level (nginx + cert-manager). The pod serves plain HTTP on 5678.
+|===
+
+=== Scaling Considerations
+
+[WARNING]
+====
+The application stores shopping list data as **JSON files on disk** (see link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]). This means:
+
+* With `ReadWriteOnce` PVC, only **one pod** can write to the volume at a time.
+* To scale horizontally, either:
+  ** Use `ReadWriteMany` storage (NFS, EFS, Azure Files)
+  ** Migrate list content into the database
+  ** Use sticky sessions (not recommended for availability)
+====
+
+=== Monitoring
+
+[source,bash]
+----
+# Pod status
+kubectl -n shopping-list get pods -o wide
+
+# API logs
+kubectl -n shopping-list logs -f deployment/shopping-list-server
+
+# MySQL logs
+kubectl -n shopping-list logs -f statefulset/mysql
+
+# Health check
+kubectl -n shopping-list exec -it deployment/shopping-list-server -- curl -s http://localhost:5678/users/test
+
+# HPA status
+kubectl -n shopping-list get hpa
+----
+
+'''
+
+== Comparison: Docker Compose vs Kubernetes
+
+[cols="2,2,2", options="header"]
+|===
+| Feature | Docker Compose | Kubernetes
+
+| Complexity | Low | Medium-High
+| Multi-node | No | Yes
+| Auto-scaling | No | HPA
+| Self-healing | `restart: unless-stopped` | Pod restart + ReplicaSet
+| Secret management | `.env` file | Secrets + external operators
+| TLS | Manual cert mount | Ingress + cert-manager
+| Network isolation | Docker networks | NetworkPolicy
+| Rolling updates | `docker compose up -d` | Built-in rollout strategy
+| Best for | Single server, dev | Production clusters
+|===

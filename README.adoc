@@ -3,7 +3,7 @@
 :sectnums:
 :icons: font
 
-TIP: Detailed documentation is available in the link:docs/index.adoc[docs/] folder, including the link:docs/api-json-exchange.adoc[API JSON Exchange Reference] and link:docs/database-integration.adoc[Database Integration] guide.
+TIP: Detailed documentation is available in the link:docs/index.adoc[docs/] folder, including the link:docs/api-json-exchange.adoc[API JSON Exchange Reference], link:docs/database-integration.adoc[Database Integration] guide, and link:docs/deployment.adoc[Deployment Guide] (Docker & Kubernetes).
 
 == Overview
 

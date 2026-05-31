@@ -1,0 +1,40 @@
+# Optional: Ingress for external access.
+# Requires an Ingress controller (e.g. nginx-ingress, traefik) installed in the cluster.
+# Adjust host and TLS settings for your domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopping-list-server
+  namespace: shopping-list
+  labels:
+    app.kubernetes.io/name: shopping-list-server
+    app.kubernetes.io/part-of: shopping-list-server
+  annotations:
+    # Increase timeouts for SignalR WebSocket connections
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    # Enable WebSocket upgrade
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    # Uncomment for cert-manager TLS automation:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shopping-api.example.com          # ← replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shopping-list-server
+                port:
+                  number: 5678
+  # Uncomment for TLS:
+  # tls:
+  #   - hosts:
+  #       - shopping-api.example.com
+  #     secretName: shopping-list-tls

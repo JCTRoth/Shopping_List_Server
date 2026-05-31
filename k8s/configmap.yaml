@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopping-list-config
+  namespace: shopping-list
+data:
+  DB_NAME: "shoppinglistserver"
+  DB_USER: "ShoppingListDBUser"
+  DB_HOST: "mysql"
+  DB_PORT: "3306"
+  USE_DOCKER: "True"
+  USE_HTTPS_REDIRECT: "False"
+  USE_FIREBASE: "false"
+  NOREPLY_EMAIL_HOST: "smtp.1und1.de"
+  NOREPLY_EMAIL_PORT: "587"
+  NOREPLY_EMAIL_ADDRESS: "noreply@shopping-now.net"
+  APPLE_CLIENT_ID: "GenericListApp.iOS.app"

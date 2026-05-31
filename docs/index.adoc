@@ -20,6 +20,9 @@ The Shopping List Server documentation is organized across the following files:
 | link:database-integration.adoc[Database Integration]
 | Database architecture, entity models, hybrid storage pattern, service layer patterns, migration history, and MySQL schema.
 
+| link:deployment.adoc[Deployment Guide]
+| Docker and Kubernetes deployment instructions, architecture diagrams, and operational runbooks.
+
 | link:../auth/README.adoc[Auth Folder]
 | Configuration of secrets, certificates, and authentication keys required for the server.
 |===
@@ -38,4 +41,7 @@ The Shopping List Server documentation is organized across the following files:
 * **Database entities** → link:database-integration.adoc#entity-models[Entity Models]
 * **Hybrid storage (DB + filesystem)** → link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]
 * **Schema migration timeline** → link:database-integration.adoc#_migration_history[Migration History]
+* **Docker deployment** → link:deployment.adoc#_docker[Docker]
+* **Kubernetes deployment** → link:deployment.adoc#_kubernetes[Kubernetes]
+* **Scaling trade-offs** → link:deployment.adoc#_scaling_considerations[Scaling Considerations]
 * **Secrets & certificates** → link:../auth/README.adoc[Auth Folder]

@@ -1,0 +1,63 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-shoppinglistserver}
+      MYSQL_USER: ${DB_USER:-ShoppingListDBUser}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  shoppinglistserver:
+    depends_on:
+      db:
+        condition: service_healthy
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: shoppinglistserver:latest
+    environment:
+      AppSettings__Secret: ${JWT_SECRET}
+      AppSettings__DbServerAddressDocker: "server=db;port=3306;"
+      AppSettings__DbName: ${DB_NAME:-shoppinglistserver}
+      AppSettings__DbUser: ${DB_USER:-ShoppingListDBUser}
+      AppSettings__DbPassword: ${DB_PASSWORD}
+      AppSettings__UseDocker: "True"
+      AppSettings__UseHttpsRedirect: ${USE_HTTPS_REDIRECT:-False}
+      AppSettings__NoReplyEMailPassword: ${NOREPLY_EMAIL_PASSWORD:-}
+      AppSettings__FacebookAppID: ${FACEBOOK_APP_ID:-}
+      AppSettings__AppleClientID: ${APPLE_CLIENT_ID:-}
+      AppSettings__AppleSignInKeyId: ${APPLE_SIGN_IN_KEY_ID:-}
+      AppSettings__AppleTeamId: ${APPLE_TEAM_ID:-}
+      UseFirebase: ${USE_FIREBASE:-false}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+    volumes:
+      - shoppingdata:/app/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+
+  # --- Optional: mount TLS certificates ---
+  # Uncomment and adjust paths for HTTPS:
+  #   - type: bind
+  #     source: /etc/letsencrypt/kestrel/
+  #     target: /app/auth/cert-files/
+  #     read_only: true
+  #   - type: bind
+  #     source: /path/to/apple-keys/
+  #     target: /app/auth/
+  #     read_only: true
+
+volumes:
+  dbdata:
+  shoppingdata:
