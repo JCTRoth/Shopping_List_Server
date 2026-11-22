@@ -1,0 +1,113 @@
+# Self-hosted S3-compatible object storage for profile pictures.
+#
+# The API no longer writes any user data to its own filesystem: it talks to this
+# service through the cluster-internal Service (`minio:9000`) and hands clients
+# short-lived pre-signed URLs signed for the public host (`media.shopping-now.net`).
+# That is what allows the API pod to be stateless — no PersistentVolumeClaim.
+#
+# Credentials live in the `shoppinglist-minio-secrets` Secret, which
+# scripts/deploy.sh creates (and reuses on later deploys).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shoppinglist-minio
+  namespace: shoppinglist-api
+  labels:
+    app: shoppinglist-minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # the data volume is ReadWriteOnce
+  selector:
+    matchLabels:
+      app: shoppinglist-minio
+  template:
+    metadata:
+      labels:
+        app: shoppinglist-minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+          args:
+            - server
+            - /data
+          ports:
+            - name: s3
+              containerPort: 9000
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shoppinglist-minio-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shoppinglist-minio-secrets
+                  key: MINIO_ROOT_PASSWORD
+            # The public host is part of the SigV4 signature: clients follow
+            # pre-signed URLs through media.shopping-now.net, so MinIO must know
+            # that host or the signatures would not validate.
+            - name: MINIO_SERVER_URL
+              value: "https://media.shopping-now.net"
+            # Browsers fetch the pre-signed URL directly, so the web origins must
+            # be allowed. Native clients (Capacitor) send their own origins.
+            - name: MINIO_API_CORS_ALLOW_ORIGIN
+              value: "https://shopping-now.net,http://127.0.0.1:5173,capacitor://localhost,https://localhost,http://localhost"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: shoppinglist-minio-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shoppinglist-minio-data
+  namespace: shoppinglist-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: shoppinglist-api
+  labels:
+    app: shoppinglist-minio
+spec:
+  type: ClusterIP
+  selector:
+    app: shoppinglist-minio
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: 9000

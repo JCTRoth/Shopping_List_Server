@@ -26,18 +26,21 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 
     private readonly string _tempRoot;
     private readonly string _databasePath;
-    private readonly string _dataStoragePath;
 
     public TestWebApplicationFactory()
     {
         _tempRoot = Path.Combine(Path.GetTempPath(), "shopping-list-server-tests", Guid.NewGuid().ToString("N"));
         _databasePath = Path.Combine(_tempRoot, "shopping-list-tests.db");
-        _dataStoragePath = Path.Combine(_tempRoot, "data");
     }
 
     public FakeEMailVerificationService EmailVerificationService => Services.GetRequiredService<FakeEMailVerificationService>();
 
     public FakeResetPasswordService ResetPasswordService => Services.GetRequiredService<FakeResetPasswordService>();
+
+    public FakeObjectStorage ObjectStorage => Services.GetRequiredService<FakeObjectStorage>();
+
+    /// <summary>Opens a scope so a test can inspect the database directly.</summary>
+    public IServiceScope CreateScope() => Services.CreateScope();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -49,8 +52,12 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
                 ["UseSQLite"] = "true",
                 ["UseFirebase"] = "false",
                 ["AppSettings:Secret"] = JwtSecret,
-                ["AppSettings:DataStorageFolder"] = _dataStoragePath,
-                ["AppSettings:UserStorageFolder"] = "users",
+                ["AppSettings:ObjectStorage:InternalServiceUrl"] = "http://objects.test",
+                ["AppSettings:ObjectStorage:PublicServiceUrl"] = "https://objects.test",
+                ["AppSettings:ObjectStorage:BucketName"] = "shoppinglist-tests",
+                ["AppSettings:ObjectStorage:AccessKey"] = "test-access-key",
+                ["AppSettings:ObjectStorage:SecretKey"] = "test-secret-key",
+                ["AppSettings:ObjectStorage:PresignExpirySeconds"] = "120",
                 ["AppSettings:NoReplyEMailHost"] = "localhost",
                 ["AppSettings:NoReplyEMailPort"] = "25",
                 ["AppSettings:NoReplyEMailAddress"] = "noreply@example.test",
@@ -75,7 +82,6 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             Directory.CreateDirectory(_tempRoot);
-            Directory.CreateDirectory(_dataStoragePath);
 
             services.RemoveAll(typeof(DbContextOptions<AppDb>));
             services.RemoveAll(typeof(AppDb));
@@ -91,6 +97,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IPushNotificationService>();
             services.RemoveAll<IUserHub>();
             services.RemoveAll<IShoppingHub>();
+            services.RemoveAll<IObjectStorage>();
 
             services.AddSingleton<IAuthenticationService, FakeAuthenticationService>();
             services.AddSingleton<FakeEMailVerificationService>();
@@ -100,12 +107,15 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IPushNotificationService, NoOpPushNotificationService>();
             services.AddSingleton<IUserHub, NoOpUserHub>();
             services.AddSingleton<IShoppingHub, NoOpShoppingHub>();
+            services.AddSingleton<FakeObjectStorage>();
+            services.AddSingleton<IObjectStorage>(provider => provider.GetRequiredService<FakeObjectStorage>());
         });
     }
 
     public HttpClient CreateAuthenticatedClient(TestUser user)
     {
-        var client = CreateClient();
+        // Avatar reads answer with a 302 to a pre-signed URL; do not try to follow it.
+        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken(user));
         return client;
     }

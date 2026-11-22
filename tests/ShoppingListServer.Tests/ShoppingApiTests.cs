@@ -123,7 +123,10 @@ public sealed class ShoppingApiTests : IClassFixture<TestWebApplicationFactory>
             Assert.True(permissions.Count >= 2);
             foreach (var permission in permissions)
             {
-                var user = permission.GetProperty("user");
+                // The wire contract is the tuple shape ({item1, item2}) both clients deserialize.
+                Assert.True(permission.TryGetProperty("item1", out var user));
+                Assert.True(permission.TryGetProperty("item2", out var permissionName));
+                Assert.False(string.IsNullOrEmpty(permissionName.GetString()));
                 var userProperties = user.EnumerateObject().ToDictionary(property => property.Name.ToLowerInvariant(), property => property.Value);
                 Assert.False(userProperties.ContainsKey("token"));
                 Assert.False(userProperties.ContainsKey("role"));

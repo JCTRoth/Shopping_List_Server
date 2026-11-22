@@ -9,17 +9,25 @@ using ShoppingListServer.Models.ShoppingData;
 
 namespace ShoppingListServer.Models
 {
+    /// <summary>
+    /// A shopping list.
+    ///
+    /// The class doubles as the wire model: the database columns store the metadata (id, owner,
+    /// share token, change stamp, version) and the content (name, category, date, notes), while the
+    /// line items live in the <see cref="ShoppingListProduct"/> table. <see cref="ProductList"/> is
+    /// the <see cref="GenericProduct"/> projection exchanged with the clients, built from
+    /// <see cref="Products"/> — never stored as a document.
+    /// </summary>
     public class ShoppingList
     {
-        private DateTime date;
-        private string dateString;
+        private string dateString = string.Empty;
 
         public ShoppingList()
         {
         }
 
-        // Unique Identity of the ShoppingList
-        // Functions as bridge between Json files, Database, and API calls.
+        // Unique Identity of the ShoppingList.
+        // Functions as the bridge between the database, the item rows, and API calls.
         [Key]
         public string SyncId { get; set; }
 
@@ -29,6 +37,14 @@ namespace ShoppingListServer.Models
         /// </summary>
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public DateTime LastChangeServerTime { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Optimistic concurrency token. Incremented together with
+        /// <see cref="LastChangeServerTime"/> on every mutation, so two concurrent writers cannot
+        /// silently overwrite each other. Never serialized — clients know nothing about it.
+        /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public int Version { get; set; }
 
         /// <summary>
         /// The list owner is the one that created the list. The list is stored under the owners folder.
@@ -43,42 +59,46 @@ namespace ShoppingListServer.Models
         [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual User Owner { get; set; }
 
-        [NotMapped]
         public string Name { get; set; }
 
-        [NotMapped]
         public string Category { get; set; }
 
-        [NotMapped]
+        /// <summary>
+        /// The shopping date as an invariant string. An empty string means "no date picked"
+        /// (the clients render that as "Unplanned"). Stored verbatim so clients round-trip it unchanged.
+        /// </summary>
         public string DateString
         {
             get => dateString;
-            set
-            {
-                dateString = value;
-                if (DateString == null || DateString.Equals(""))
-                    date = DateTime.MinValue;
-                else
-                    date = DateTime.Parse(DateString, CultureInfo.InvariantCulture);
-            }
+            set => dateString = value ?? string.Empty;
         }
 
-        // The shopping date. Hours and mintes are stored as well but are ignored.
+        // The shopping date. Hours and minutes are stored as well but are ignored.
         // DateTime.MinValue means that no date is picked.
         [NotMapped, JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public DateTime Date
         {
-            get => date;
-            set
-            {
-                date = value;
-                dateString = Date.ToString(CultureInfo.InvariantCulture);
-            }
+            get => DateTime.TryParse(DateString, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed)
+                ? parsed
+                : DateTime.MinValue;
+            set => DateString = value == DateTime.MinValue
+                ? string.Empty
+                : value.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
-        [NotMapped]
         public string Notes { get; set; }
 
+        /// <summary>
+        /// The line items, in <see cref="ShoppingListProduct.Position"/> order.
+        /// The persisted representation; never serialized directly.
+        /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
+        public virtual List<ShoppingListProduct> Products { get; set; } = new List<ShoppingListProduct>();
+
+        /// <summary>
+        /// The item projection exchanged with the clients. Populated by the service layer from
+        /// <see cref="Products"/>; it is never persisted.
+        /// </summary>
         [NotMapped]
         public List<GenericProduct> ProductList { get; set; }
 
@@ -88,12 +108,17 @@ namespace ShoppingListServer.Models
         /// <summary>
         /// Id that can be used to share this list with other users.
         /// Not to be confused with the <see cref="SyncId"/>
+        /// Neither client reads the token from a list payload; it is only returned by the dedicated
+        /// share-id endpoints. Ignoring it also keeps lazy loading from firing during serialization
+        /// of detached (read-only) entries.
         /// </summary>
+        [JsonIgnore, System.Text.Json.Serialization.JsonIgnore]
         public virtual ExpirationToken ShareId { get; set; }
 
         public void UpdateLastChangeServerTime()
         {
             LastChangeServerTime = DateTime.UtcNow;
+            Version++;
         }
     }
 }

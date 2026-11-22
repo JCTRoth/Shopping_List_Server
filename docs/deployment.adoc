@@ -150,13 +150,14 @@ volumes:
 | Volume | Contents
 
 | `dbdata`
-| MySQL data directory (`/var/lib/mysql`)
+| PostgreSQL data directory (`/var/lib/postgresql/data`)
 
-| `shoppingdata`
-| Shopping list JSON files and user profile pictures (`/app/data`)
+| `miniodata`
+| Profile-picture objects (`/data` in the MinIO container)
 |===
 
-Both volumes survive `docker compose down`. To fully reset, run `docker compose down -v`.
+Shopping lists live in PostgreSQL; the API container mounts no volume of its own. Both volumes survive
+`docker compose down`. To fully reset, run `docker compose down -v`.
 
 '''
 
@@ -178,6 +179,10 @@ k8s/
 ├── pdb.yaml              # Pod Disruption Budget
 └── networkpolicy.yaml    # Network isolation rules
 ----
+
+`minio.yaml` deploys the object storage that holds profile pictures, and `minio-ingress.yaml` publishes
+it as `media.shopping-now.net` (the host that pre-signed URLs are signed for). The API deployment has no
+PersistentVolumeClaim.
 
 === Architecture
 
@@ -305,7 +310,7 @@ kubectl apply -f k8s/
 | Databases need stable identity and persistent storage. For production scale, consider a managed database (RDS, Cloud SQL) instead.
 
 | Single API replica by default
-| The app stores shopping list JSON on local PVC. Scaling beyond 1 replica requires shared storage (NFS, EFS) or migrating to full database storage. The HPA is provided for when that migration happens.
+| `replicas: 1` is kept because SignalR has no backplane yet: clients connected to one pod would miss events sent by another. Add Redis (or another backplane) before raising the replica count. The API itself is stateless — lists are in PostgreSQL, pictures in MinIO — so `RollingUpdate` is used and no volume blocks scaling.
 
 | Init container `wait-for-mysql`
 | The API runs migrations at startup. If MySQL isn't ready, the app crashes. The init container blocks until MySQL responds on port 3306.
@@ -324,17 +329,10 @@ kubectl apply -f k8s/
 
 [WARNING]
 ====
-The application stores shopping list data as **JSON files on disk** (see link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]). This means:
-
-* With `ReadWriteOnce` PVC, only **one pod** can write to the volume at a time.
-* To scale horizontally, either:
-  ** Use `ReadWriteMany` storage (NFS, EFS, Azure Files)
-  ** Migrate list content into the database
-  ** Use sticky sessions (not recommended for availability)
-====
-
-=== Monitoring
-
+The API keeps no user data on disk: shopping lists are relational rows in PostgreSQL and profile
+pictures are objects in MinIO (see link:database-integration.adoc#storage-model[Storage Model]).
+Scaling is therefore limited by the SignalR hub, not by storage: with more than one replica, clients
+connected to different pods do not receive each other's events until a backplane (e.g. Redis) is added.
 [source,bash]
 ----
 # Pod status

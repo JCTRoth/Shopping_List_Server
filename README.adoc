@@ -35,7 +35,7 @@ Launch Screen | Edit Screen | Zoom Screen
 * **Real-Time Updates**: SignalR integration for live synchronization of shopping list changes across connected clients.
 * **Push Notifications**: Firebase Cloud Messaging (FCM) for sending notifications to users' devices about list updates.
 * **Email Services**: Automated email verification, password reset, and HTML email templates using SMTP.
-* **File Storage**: User-specific file storage for profile pictures and other data, managed via FilesystemService with secure path handling.
+* **Object Storage**: Profile pictures are stored in S3-compatible object storage (MinIO in the cluster) and served through short-lived pre-signed URLs. The API itself keeps no user data on disk, so it is stateless and needs no PersistentVolumeClaim.
 * **Database Migrations**: Entity Framework Core migrations for schema evolution, supporting both PostgreSQL and SQLite databases.
 * **Security**: HTTPS redirection, CORS support, secure handling of sensitive data, and environment-specific configurations.
 * **Deployment**: Docker support for containerized deployment, with options for local development and external server production.
@@ -44,7 +44,8 @@ Launch Screen | Edit Screen | Zoom Screen
 
 * **Entities and Models** (see link:docs/database-integration.adoc#entity-models[Entity Models] for full schema):
   - [`User`](Models/User.cs): Represents users with properties like email, name, color, verification status, and FCM tokens.
-  - [`ShoppingList`](Models/ShoppingData/ShoppingList.cs): Core shopping list entity with items, permissions, and metadata.
+  - [`ShoppingList`](Models/ShoppingData/ShoppingList.cs): Shopping list metadata and content (name, category, date, notes).
+  - [`ShoppingListProduct`](Models/ShoppingData/ShoppingListProduct.cs): The list's item rows (name, category, count, checked, position). One row per item, so a count change is a single-row update.
   - [`ShoppingListPermission`](Models/ShoppingData/ShoppingListPermission.cs): Manages user permissions for lists.
   - [`FcmToken`](Models/FcmToken.cs): Stores Firebase tokens for push notifications.
   - [`ImageInfo`](Models/ImageInfo.cs): Handles user profile images.
@@ -57,7 +58,7 @@ Launch Screen | Edit Screen | Zoom Screen
   - [`PushNotificationService`](Services/PushNotificationService.cs): FCM integration for notifications.
   - [`ShoppingService`](Services/ShoppingService.cs): Shopping list operations and permissions.
   - [`EMailVerificationService`](Services/EMailVerificationService.cs): Email verification and templates.
-  - [`FilesystemService`](Services/FilesystemService.cs): Secure file storage and management.
+  - [`S3ObjectStorage`](Services/S3ObjectStorage.cs): Profile-picture storage in MinIO / S3 and pre-signed URL creation.
 
 * **Controllers**: API endpoints handle HTTP requests:
   - [`UsersController`](Controllers/UsersController.cs): User authentication, registration, and management.
@@ -65,7 +66,7 @@ Launch Screen | Edit Screen | Zoom Screen
   - [`VerifyController`](Controllers/VerifyController.cs): Email verification endpoints.
   - [`ShoppingHub_Controller`](Controllers/ShoppingHub_Controller.cs): SignalR hub for real-time updates.
 
-* **Database Context**: [`AppDb`](Database/AppDb.cs) manages database operations with lazy loading, UTC time conversion, and migration support. See link:docs/database-integration.adoc[Database Integration] for the full schema and hybrid storage architecture.
+* **Database Context**: [`AppDb`](Database/AppDb.cs) manages database operations with lazy loading, UTC time conversion, and migration support. See link:docs/database-integration.adoc[Database Integration] for the full schema.
 
 * **Authentication Flow**: JWT tokens for session management with claims-based authorization. Social authentication via OAuth2 with provider-specific models (GoogleUser, FacebookProfile, AppleAccount).
 
@@ -75,7 +76,7 @@ Launch Screen | Edit Screen | Zoom Screen
 
 * **Email and Notifications**: HTML page generation for emails using [`HtmlPageFactory`](Logic/HtmlPageFactory.cs), FCM integration for push messages.
 
-* **File Handling**: Storage paths for user data with folder creation and management in [`Files`](Files/) directory.
+* **Storage**: Shopping lists (metadata and items) live in PostgreSQL; profile pictures live in S3-compatible object storage. Nothing is written to the API's own filesystem.
 
 * **Error Handling**: Global exception handling with custom status messages in [`StatusMessages.cs`](Models/StatusMessages.cs).
 
@@ -85,7 +86,7 @@ Launch Screen | Edit Screen | Zoom Screen
 
 === Prerequisites
 
-* .NET 8.0 SDK
+* .NET 10.0 SDK
 * PostgreSQL or SQLite database
 * Docker (for containerized deployment)
 * Firebase project (for push notifications)
@@ -93,28 +94,51 @@ Launch Screen | Edit Screen | Zoom Screen
 
 === Local Server Setup
 
-1. Edit [`appsettings.Development.json`](appsettings.Development.json):
-   - Set database connection: `"DbServerAddress": "Host=localhost;Port=5432;"` for local PostgreSQL or use SQLite.
-   - Disable HTTPS: Change URL in [`Program.cs`](Program.cs) to `"http://0.0.0.0:5678"`.
+The API can run from source on the host while PostgreSQL keeps running in Docker. This is the
+setup the VS Code configurations use, and it is what makes breakpoints in `Controllers/`,
+`Services/` and `Logic/` work.
 
-2. Install dependencies:
+1. Install dependencies:
    ```
    dotnet restore
    ```
 
-3. Run migrations:
-   ```
-   dotnet ef database update
-   ```
+2. Start the local stack — one VS Code task, **Terminal → Run Task… → local: start**. It
+   - stops the Docker API container (it publishes the same port 5677),
+   - starts `db` (PostgreSQL) and `adminer` if they are not running,
+   - runs the API on http://localhost:5677 with `ASPNETCORE_ENVIRONMENT=Development`.
 
-4. Start the server:
+   The equivalent command is:
    ```
-   dotnet run
+   docker compose stop shoppinglistserver
+   docker compose up -d --no-deps db adminer
+   dotnet run --project WebApi.csproj --no-launch-profile
    ```
+   `--no-launch-profile` keeps the URL from [`Program.cs`](Program.cs); the profile in
+   `Properties/launchSettings.json` would move the API to ports 5000/5001.
+
+3. Debugging: choose **.NET Launch (local)** and press F5. The pre-launch task builds and stops
+   the Docker API container; PostgreSQL and Adminer stay up.
+
+Adminer is available at http://localhost:8080. Sign in with system `PostgreSQL`, server `db`,
+user `shoppinglist`, database `shoppinglistserver` and the password from `DB_PASSWORD`
+(`sl_dev_pw_2026` for the local stack).
+
+[`appsettings.Development.json`](appsettings.Development.json) connects to that database through
+the loopback port the compose file publishes (`127.0.0.1:5432`) and carries a development-only
+JWT secret; it is not used by the deployed image. `UseSQLite: true` switches a local run to a
+file database instead.
+
+The API is stateless: shopping lists (including every item) live in PostgreSQL, and profile pictures
+live in S3-compatible object storage. `docker-compose.yml` starts a local MinIO on
+`http://localhost:9000` (console `http://localhost:9001`) alongside PostgreSQL, so no volume has to be
+shared with the container. Configure the store under `AppSettings:ObjectStorage` in
+[`appsettings.Development.json`](appsettings.Development.json); the bucket is created automatically on
+startup.
 
 Test connectivity:
 ```
-curl -I http://localhost:5678/users/test
+curl -I http://localhost:5677/users/test
 ```
 
 === External Server with Docker

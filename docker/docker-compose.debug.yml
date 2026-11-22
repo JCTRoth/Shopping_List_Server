@@ -16,10 +16,8 @@ services:
       UseFirebase: "false"
     volumes:
       - ..:/src                  # mount source for hot-reload
-      - shoppingdata:/app/data
     entrypoint: ["dotnet", "watch", "run", "--project", "/src/WebApi.csproj", "--urls", "http://+:5678"]
     ports:
       - "5678:5678"
 
-volumes:
-  shoppingdata:
+volumes: {}

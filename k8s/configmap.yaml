@@ -10,10 +10,15 @@ data:
   # Nothing to redirect to: TLS is terminated by Traefik in front of the pod.
   AppSettings__UseHttpsRedirect: "False"
 
-  # ── Storage ───────────────────────────────────────────────────────────────
-  # Paths are relative to the working directory (/app) and backed by a PVC.
-  AppSettings__DataStorageFolder: "data"
-  AppSettings__UserStorageFolder: "user"
+  # ── Object storage (MinIO) ────────────────────────────────────────────────
+  # Internal endpoint for I/O, public endpoint used only to sign pre-signed URLs
+  # for clients. Credentials come from the Secret, not from here.
+  AppSettings__ObjectStorage__InternalServiceUrl: "http://minio:9000"
+  AppSettings__ObjectStorage__PublicServiceUrl: "https://media.shopping-now.net"
+  AppSettings__ObjectStorage__BucketName: "shoppinglist"
+  AppSettings__ObjectStorage__Region: "us-east-1"
+  AppSettings__ObjectStorage__ForcePathStyle: "true"
+  AppSettings__ObjectStorage__PresignExpirySeconds: "120"
 
   # ── Database (PostgreSQL container "shoppinglist-api-postgres") ───────────
   AppSettings__UseDocker: "True"

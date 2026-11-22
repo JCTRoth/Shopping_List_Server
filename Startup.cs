@@ -24,7 +24,6 @@ using Microsoft.AspNetCore.Http.Features;
 using Npgsql;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
-using Microsoft.OpenApi.Models;
 
 namespace ShoppingListServer
 {
@@ -54,43 +53,8 @@ namespace ShoppingListServer
             // Replaced asp .net core 2.0 AddMvc()
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
             services.AddControllersWithViews();
-            services.AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc("v1", new OpenApiInfo
-                {
-                    Title = "Shopping List Server API",
-                    Version = "v1",
-                    Description = "HTTP API for user, shopping list, verification, and password-reset workflows."
-                });
-
-                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "bearer",
-                    BearerFormat = "JWT",
-                    In = ParameterLocation.Header,
-                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\""
-                });
-
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }
-                });
-            });
 
             // Swagger / OpenAPI documentation, available at /swagger
-            services.AddEndpointsApiExplorer();
             services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo
@@ -196,8 +160,6 @@ namespace ShoppingListServer
 
             // configure DI for application services
             // Scoped services are created once per request.
-            services.AddScoped<IFilesystemService, FilesystemService>();
-            services.AddScoped<IShoppingListStorageService, ShoppingListStorageSevice>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IRestService, RestService>();
             services.AddScoped<IEMailVerificationService, EMailVerificationService>();
@@ -208,6 +170,9 @@ namespace ShoppingListServer
             services.AddTransient<IShoppingHub, ShoppingHubService>();
             services.AddTransient<IPushNotificationService, PushNotificationService>();
             services.AddTransient<IAuthenticationService, AuthenticationService>();
+
+            // Stateless binary storage for profile pictures (self-hosted MinIO / S3).
+            services.AddSingleton<IObjectStorage, S3ObjectStorage>();
 
             //_serviceProvider = services.BuildServiceProvider();
 
@@ -361,7 +326,34 @@ namespace ShoppingListServer
             using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>().CreateScope())
             {
                 var context = serviceScope.ServiceProvider.GetRequiredService<AppDb>();
-                context.Database.Migrate();
+
+                if (context.Database.IsNpgsql())
+                {
+                    // The deployment can roll several pods at once; serialize the startup migration
+                    // with a PostgreSQL advisory lock so they cannot race on the history table.
+                    context.Database.OpenConnection();
+                    try
+                    {
+                        context.Database.ExecuteSqlRaw("SELECT pg_advisory_lock(918273645)");
+                        context.Database.Migrate();
+                    }
+                    finally
+                    {
+                        context.Database.ExecuteSqlRaw("SELECT pg_advisory_unlock(918273645)");
+                        context.Database.CloseConnection();
+                    }
+                }
+                else
+                {
+                    context.Database.Migrate();
+                }
+
+                // Create the object-storage bucket if it does not exist yet. Failures are logged and
+                // do not stop the API: list operations do not depend on object storage.
+                serviceScope.ServiceProvider.GetRequiredService<IObjectStorage>()
+                    .EnsureBucketAsync()
+                    .GetAwaiter()
+                    .GetResult();
             }
         }
 

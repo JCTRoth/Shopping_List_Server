@@ -26,7 +26,8 @@ namespace ShoppingListServer.Services
         private readonly AppSettings _appSettings;
         private readonly AppDb _db;
         private readonly IUserHub _userHub;
-        private readonly IFilesystemService _filesystemService;
+        private readonly IObjectStorage _objectStorage;
+        private readonly ObjectStorageSettings _objectStorageSettings;
         private readonly IAuthenticationService _authenticationService;
         private readonly IEMailVerificationService _emailVerificationService;
 
@@ -34,14 +35,15 @@ namespace ShoppingListServer.Services
             IOptions<AppSettings> appSettings,
             AppDb db,
             IUserHub userHub,
-            IFilesystemService filesystemService,
+            IObjectStorage objectStorage,
             IAuthenticationService authenticationService,
             IEMailVerificationService emailVerificationService)
         {
             _appSettings = appSettings.Value;
             _db = db;
             _userHub = userHub;
-            _filesystemService = filesystemService;
+            _objectStorage = objectStorage;
+            _objectStorageSettings = appSettings.Value.ObjectStorage ?? new ObjectStorageSettings();
             _authenticationService = authenticationService;
             _emailVerificationService = emailVerificationService;
         }
@@ -83,22 +85,17 @@ namespace ShoppingListServer.Services
             }
 
             // Add User to list
-            if (_filesystemService.CreateUserFolder(new_user.Id))
+            if (isAlternativePassword)
             {
-                if (isAlternativePassword)
-                {
-                    AddAlternativeHashedPassword(new_user, password);
-                }
-                else
-                {
-                    AddUserPassword(new_user, password);
-                }
-                _db.Users.Add(new_user);
-                _db.SaveChanges();
-                return true;
+                AddAlternativeHashedPassword(new_user, password);
             }
-
-            return false;
+            else
+            {
+                AddUserPassword(new_user, password);
+            }
+            _db.Users.Add(new_user);
+            _db.SaveChanges();
+            return true;
         }
 
         private bool AddUserOrAlternativePassword(User new_user, string password)
@@ -341,7 +338,7 @@ namespace ShoppingListServer.Services
             return true;
         }
 
-        public bool RemoveUser(string currentUserId)
+        public async Task<bool> RemoveUser(string currentUserId)
         {
             User currentUser = GetById(currentUserId);
             currentUser.ContactShareId = null;
@@ -355,6 +352,17 @@ namespace ShoppingListServer.Services
             currentUser.ProfilePictureInfo = null;
             _db.Users.Remove(currentUser);
             _db.SaveChanges();
+
+            // The database row is the source of truth; a failure to remove the bytes leaves an
+            // orphaned object but must not turn a completed account deletion into an error.
+            try
+            {
+                await _objectStorage.DeleteAsync(ProfilePictureKey(currentUserId));
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"Could not delete the profile picture of user {currentUserId}: {exception.Message}");
+            }
             return true;
         }
 
@@ -621,24 +629,27 @@ namespace ShoppingListServer.Services
 
         public async Task<bool> AddOrUpdateProfilePicture(string currentUserId, IFormFile picture, ImageInfo info)
         {
+            if (picture == null || picture.Length == 0)
+                return false;
+
             User user = FindUser(currentUserId, null);
 
-            // Update database.
-            //DateTime lastChange = DateTime.Now;
-            if (user.ProfilePictureInfo == null)
+            // Store the bytes first. Only record the metadata once the upload succeeded, so a failed
+            // upload can never leave a ProfilePictureInfo that points at a missing object.
+            string contentType = string.IsNullOrWhiteSpace(picture.ContentType) ? "image/jpeg" : picture.ContentType;
+            using (Stream stream = picture.OpenReadStream())
             {
-                user.ProfilePictureInfo = new ImageInfo();
+                await _objectStorage.PutAsync(ProfilePictureKey(currentUserId), stream, contentType);
             }
-            user.ProfilePictureInfo.ApplyChanges(info);
-            //user.ProfilePictureInfo.LastChangeTransformationTime = lastChange;
-            //user.ProfilePictureInfo.LastChangeImageFileTime = lastChange;
-            _db.SaveChanges();
 
-            // Copy file.
-            string filePath = GetProfilePicturePath(currentUserId);
-            using (FileStream stream = new FileStream(filePath, FileMode.Create))
+            if (info != null)
             {
-                await picture.CopyToAsync(stream);
+                if (user.ProfilePictureInfo == null)
+                {
+                    user.ProfilePictureInfo = new ImageInfo();
+                }
+                user.ProfilePictureInfo.ApplyChanges(info);
+                _db.SaveChanges();
             }
             return true;
         }
@@ -659,23 +670,26 @@ namespace ShoppingListServer.Services
             _db.SaveChanges();
         }
 
-        public bool RemoveProfilePicture(string currentUserId)
+        public async Task<bool> RemoveProfilePicture(string currentUserId)
         {
             User user = FindUser(currentUserId, null);
 
             // Remove database entry.
+            bool hadPicture = user.ProfilePictureInfo != null;
             user.ProfilePictureInfo = null;
             _db.SaveChanges();
 
-            // Remove image file.
-            string filePath = GetProfilePicturePath(currentUserId);
-            if (File.Exists(filePath))
+            // Remove the stored bytes. Deleting a missing key is not an error.
+            try
             {
-                File.Delete(filePath);
-                return true;
+                await _objectStorage.DeleteAsync(ProfilePictureKey(currentUserId));
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"Could not delete the profile picture of user {currentUserId}: {exception.Message}");
             }
 
-            return false;
+            return hadPicture;
         }
 
         public bool IsAssociatedUser(string currentUserId, string targetUserId)
@@ -713,39 +727,30 @@ namespace ShoppingListServer.Services
             User user = FindUser(currentUserId, null);
             if (user.ProfilePictureInfo != null)
             {
-                string filePath = GetProfilePicturePath(currentUserId);
-                if (File.Exists(filePath))
+                // Return a plain copy: the EF lazy-loading proxy exposes an extra `lazyLoader`
+                // member, which has no business being on the wire.
+                ImageInfo info = user.ProfilePictureInfo;
+                return new ImageInfo(info.X, info.Y, info.Scale, info.Rotation, info.LastChangeTransformationTime, info.LastChangeImageFileTime)
                 {
-                    return user.ProfilePictureInfo;
-                }
-                else
-                {
-                    Console.WriteLine("ERROR: Profile picture file not found although ProfilePictureInfo is present.");
-                    user.ProfilePictureInfo = null;
-                    _db.SaveChanges();
-                }
+                    Id = info.Id
+                };
             }
             throw new Exception(StatusMessages.NoProfilePictureFound);
         }
 
-        public async Task<byte[]> GetProfilePicture(string currentUserId)
+        /// <summary>
+        /// Returns a short-lived pre-signed URL for the given user's profile picture.
+        /// The caller (the controller) is responsible for the association/permission check; the URL
+        /// itself is bearer-less, which is why it must stay short-lived.
+        /// </summary>
+        public Task<string> GetProfilePictureUrl(string userId)
         {
-            User user = FindUser(currentUserId, null);
-            if (user.ProfilePictureInfo != null)
-            {
-                string filePath = GetProfilePicturePath(currentUserId);
-                if (File.Exists(filePath))
-                {
-                    return await File.ReadAllBytesAsync(filePath);
-                }
-                else
-                {
-                    Console.WriteLine("ERROR: Profile picture file not found although ProfilePictureInfo is present.");
-                    user.ProfilePictureInfo = null;
-                    _db.SaveChanges();
-                }
-            }
-            throw new Exception(StatusMessages.NoProfilePictureFound);
+            User user = FindUser(userId, null);
+            if (user.ProfilePictureInfo == null)
+                throw new Exception(StatusMessages.NoProfilePictureFound);
+
+            TimeSpan lifetime = TimeSpan.FromSeconds(Math.Max(30, _objectStorageSettings.PresignExpirySeconds));
+            return Task.FromResult(_objectStorage.CreatePresignedGetUrl(ProfilePictureKey(userId), lifetime));
         }
 
         /// <summary>
@@ -787,15 +792,13 @@ namespace ShoppingListServer.Services
             return times.ToList();
         }
 
-        private string GetProfilePicturePath(string userId)
+        /// <summary>
+        /// Object-storage key of a user's profile picture. Derived from the user id, so no key has to
+        /// be stored in the database.
+        /// </summary>
+        public static string ProfilePictureKey(string userId)
         {
-            string pictureName = GetProfilePictureFilename(userId);
-            return System.IO.Path.Combine(_filesystemService.GetUserFolderPath(userId), pictureName);
-        }
-
-        private string GetProfilePictureFilename(string userId)
-        {
-            return string.Format("profile_picture_{0}.jpg", userId.Substring(userId.Length - 8, 8));
+            return "profile-pictures/" + userId + ".jpg";
         }
     }
 }

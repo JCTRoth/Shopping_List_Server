@@ -1,0 +1,27 @@
+# Public entry point for object storage. Pre-signed URLs are signed for this host,
+# so it must reach MinIO unchanged (no path rewriting) and serve valid TLS.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shoppinglist-minio-ingress
+  namespace: shoppinglist-api
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - media.shopping-now.net
+      secretName: shoppinglist-minio-tls-cert
+  rules:
+    - host: media.shopping-now.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000

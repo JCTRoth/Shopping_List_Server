@@ -84,12 +84,36 @@ fi
 
 MAIL_PASSWORD="${MAIL_PASSWORD:-$(read_secret AppSettings__NoReplyEMailPassword)}"
 
+# ── Object storage credentials (shared by MinIO and the API) ──────
+MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-$(read_secret AppSettings__ObjectStorage__AccessKey)}"
+if [ -z "$MINIO_ACCESS_KEY" ]; then
+  MINIO_ACCESS_KEY="shoppinglist"
+fi
+
+MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-$(read_secret AppSettings__ObjectStorage__SecretKey)}"
+if [ -z "$MINIO_SECRET_KEY" ]; then
+  MINIO_SECRET_KEY="$(openssl rand -hex 24)"
+  echo "▶ Generated new object-storage credentials"
+else
+  echo "▶ Reusing existing object-storage credentials"
+fi
+
+echo "▶ Creating/updating object storage secret..."
+kubectl create secret generic shoppinglist-minio-secrets \
+  --namespace="$PROJECT" \
+  --from-literal=MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+  --from-literal=MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+echo "  ✓ Object storage secret ready"
+
 echo "▶ Creating/updating application secret..."
 kubectl create secret generic shoppinglist-api-secrets \
   --namespace="$PROJECT" \
   --from-literal=AppSettings__Secret="$JWT_SECRET" \
   --from-literal=AppSettings__DbPassword="$DB_PASSWORD" \
   --from-literal=AppSettings__NoReplyEMailPassword="$MAIL_PASSWORD" \
+  --from-literal=AppSettings__ObjectStorage__AccessKey="$MINIO_ACCESS_KEY" \
+  --from-literal=AppSettings__ObjectStorage__SecretKey="$MINIO_SECRET_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 echo "  ✓ Application secret ready"
 
@@ -98,10 +122,14 @@ echo ""
 echo "▶ Applying manifests..."
 kubectl apply -f "$REPO_ROOT/k8s/"
 
-# ── Wait for PostgreSQL, then the API ─────────────────────────────────────
+# ── Wait for PostgreSQL, MinIO, then the API ───────────────────────
 echo ""
 echo "▶ Waiting for PostgreSQL..."
 kubectl rollout status deployment/shoppinglist-api-postgres -n "$PROJECT" --timeout=300s
+
+echo ""
+echo "▶ Waiting for MinIO..."
+kubectl rollout status deployment/shoppinglist-minio -n "$PROJECT" --timeout=300s
 
 # "latest" with an unchanged manifest does not restart the pods, so force it
 # to pick up the freshly pushed image.

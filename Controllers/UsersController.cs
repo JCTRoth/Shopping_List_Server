@@ -192,7 +192,7 @@ namespace ShoppingListServer.Controllers
             // Delete all lists or permissions of the user to the list.
             await _shoppingService.DeleteAllListsOfUser(currentUserId, false);
             // Remove the user from the database.
-            bool success = _userService.RemoveUser(currentUserId);
+            bool success = await _userService.RemoveUser(currentUserId);
             if (success)
                 return Ok();
             else
@@ -395,7 +395,7 @@ namespace ShoppingListServer.Controllers
         /// <returns></returns>
         [Consumes("multipart/form-data")]
         [HttpPost("profile_picture")]
-        public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] ProfilePictureUploadRequest request)
+        public async Task<IActionResult> AddOrUpdateProfilePicture([FromForm] ShoppingListServer.Models.Commands.ProfilePictureUploadRequest request)
         {
             ImageInfo info = JsonConvert.DeserializeObject<ImageInfo>(request.JsonString);
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -418,10 +418,10 @@ namespace ShoppingListServer.Controllers
         }
 
         [HttpDelete("profile_picture")]
-        public IActionResult RemoveProfilePicture()
+        public async Task<IActionResult> RemoveProfilePicture()
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            _userService.RemoveProfilePicture(currentUserId);
+            await _userService.RemoveProfilePicture(currentUserId);
             return Ok();
         }
 
@@ -460,10 +460,12 @@ namespace ShoppingListServer.Controllers
         }
 
         /// <summary>
-        /// Returns the profile picture of target user.
+        /// Redirects to a short-lived pre-signed URL for the profile picture of the target user.
+        /// The association check runs before the URL is minted: a pre-signed URL is bearer-less, so
+        /// this endpoint is the only place that decides who may read the picture.
         /// </summary>
         /// <param name="userId">target user</param>
-        /// <returns>byte[]</returns>
+        /// <returns>302 to the object storage URL</returns>
         [Authorize(Roles = Role.User + "," + Role.Admin)]
         [HttpGet("profile_picture/{userId}")]
         public async Task<IActionResult> GetProfilePicture(string userId)
@@ -472,8 +474,9 @@ namespace ShoppingListServer.Controllers
             if (!User.IsInRole(Role.Admin) && !_userService.IsAssociatedUser(currentUserId, userId))
                 return Forbid();
 
-            byte[] bytes = await _userService.GetProfilePicture(userId);
-            return File(bytes, "image/jpeg");
+            string url = await _userService.GetProfilePictureUrl(userId);
+            Response.Headers.CacheControl = "no-store";
+            return Redirect(url);
         }
 
         private static string DeserializeStringBody(object jsonBody)

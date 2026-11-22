@@ -31,7 +31,7 @@ namespace ShoppingListServer.Services.Interfaces
 
         bool UpdateUserPassword(string currentUserId, string password);
 
-        bool RemoveUser(string currentUserId);
+        Task<bool> RemoveUser(string currentUserId);
 
         IEnumerable<User> GetAll();
 
@@ -102,13 +102,17 @@ namespace ShoppingListServer.Services.Interfaces
 
         void UpdateProfilePictureTransformation(string currentUserId, ImageTransformationDTO transformation);
 
-        bool RemoveProfilePicture(string currentUserId);
+        Task<bool> RemoveProfilePicture(string currentUserId);
 
         bool IsAssociatedUser(string currentUserId, string targetUserId);
 
         ImageInfo GetProfilePictureInfo(string userId);
 
-        Task<byte[]> GetProfilePicture(string userId);
+        /// <summary>
+        /// Returns a short-lived pre-signed URL for the user's profile picture. The caller is
+        /// responsible for checking that the current user is allowed to see it.
+        /// </summary>
+        Task<string> GetProfilePictureUrl(string userId);
 
         List<UserPictureLastChangeTimeDTO> GetUserPictureLastChangeTimes(string currentUserId);
     }

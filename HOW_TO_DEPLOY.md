@@ -6,12 +6,17 @@ Everything lives in one Kubernetes namespace (`shoppinglist-api`):
 
 | Resource | Name | Purpose |
 |----------|------|---------|
-| Deployment | `shoppinglist-api` | The ASP.NET Core 8 API (port 5678) |
+| Deployment | `shoppinglist-api` | The ASP.NET Core 10 API (port 5678) |
 | Service | `shoppinglist-api-service` | ClusterIP 80 → pod 5678 |
 | Ingress | `shoppinglist-api-ingress` | Traefik + cert-manager TLS for `api.shopping-now.net` |
 | Deployment | `shoppinglist-api-postgres` | PostgreSQL 16 (2 Gi volume) |
-| PVC | `shoppinglist-api-data` | User shopping-list files (`/app/data`) |
-| Secret | `shoppinglist-api-secrets` | JWT signing key, DB password, SMTP password |
+| Deployment | `shoppinglist-minio` | MinIO object storage for profile pictures (5 Gi volume) |
+| Ingress | `shoppinglist-minio-ingress` | TLS for `media.shopping-now.net` (pre-signed URL host) |
+| Secret | `shoppinglist-api-secrets` | JWT signing key, DB password, SMTP password, storage keys |
+| Secret | `shoppinglist-minio-secrets` | MinIO root credentials (shared with the API) |
+
+The API has **no PersistentVolumeClaim**: shopping lists are rows in PostgreSQL and profile pictures
+are objects in MinIO, so the pod is stateless and updates roll.
 
 ## Prerequisites
 
@@ -81,13 +86,15 @@ KUBECONFIG=~/.kube/k3s-erp.yaml kubectl logs -n shoppinglist-api -f deploy/shopp
 The API is reachable at `https://api.shopping-now.net`. TLS certificate
 provisioning may take 2–5 minutes on the first deploy.
 
-> The API applies EF Core migrations on startup. The pod waits for PostgreSQL via an
-> init container, and the first start can take a minute while migrations run.
+> The API applies EF Core migrations on startup. The pod waits for PostgreSQL and MinIO via init
+> containers, and the first start can take a minute while migrations run. `scripts/deploy.sh`
+> generates the MinIO credentials once and reuses them on later deploys.
 
 ## Updating
 
 Run `bash scripts/deploy.sh` again — it builds a new image, pushes it, applies
-the manifests and rolls the API pod. Data survives in the PVCs.
+the manifests and rolls the API pod. Shopping lists survive in PostgreSQL and profile pictures in
+the MinIO volume.
 
 ## Troubleshooting
 

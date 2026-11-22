@@ -23,6 +23,12 @@ namespace ShoppingListServer.Database
         //public DbSet<string> SyncIDs { get; set; }
         public DbSet<ShoppingList> ShoppingLists { get; set; }
 
+        /// <summary>
+        /// The line items of all shopping lists. One row per item via the unique
+        /// <c>(ShoppingListId, ItemName)</c> index, so a count/checked change is a single-row update.
+        /// </summary>
+        public DbSet<ShoppingListProduct> ShoppingListProducts { get; set; }
+
         public AppDb(DbContextOptions options) : base(options)
         {
         }
@@ -65,6 +71,30 @@ namespace ShoppingListServer.Database
                 .HasOne(accessRight => accessRight.UserTarget)
                 .WithMany(user => user.UserContactsOthers)
                 .HasForeignKey(accessRight => accessRight.UserTargetId);
+
+            // ShoppingList -> ShoppingListProduct (cascade: deleting a list deletes its items)
+            modelBuilder.Entity<ShoppingListProduct>(product =>
+            {
+                product.ToTable("ShoppingListProducts");
+                product.HasKey(item => item.Id);
+                product.Property(item => item.ShoppingListId).IsRequired();
+                product.Property(item => item.ItemName).IsRequired();
+                product.HasOne(item => item.ShoppingList)
+                    .WithMany(list => list.Products)
+                    .HasForeignKey(item => item.ShoppingListId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Item identity within a list is the item name (no stable ids on the wire).
+                product.HasIndex(item => new { item.ShoppingListId, item.ItemName }).IsUnique();
+                // Ordering is the Position column.
+                product.HasIndex(item => new { item.ShoppingListId, item.Position });
+            });
+
+            // Optimistic concurrency: every mutation bumps ShoppingList.Version, and an update whose
+            // WHERE clause matches no row is reported as DbUpdateConcurrencyException.
+            modelBuilder.Entity<ShoppingList>()
+                .Property(list => list.Version)
+                .IsConcurrencyToken();
 
             // Store DateTime in Database in UTC, see
             // https://stackoverflow.com/a/61243301

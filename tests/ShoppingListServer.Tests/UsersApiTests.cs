@@ -4,6 +4,7 @@ using System.Text.Json;
 using ShoppingListServer.Entities;
 using ShoppingListServer.Models;
 using ShoppingListServer.Models.ShoppingData;
+using ShoppingListServer.Services;
 using ShoppingListServer.Tests.Support;
 
 namespace ShoppingListServer.Tests;
@@ -207,6 +208,11 @@ public sealed class UsersApiTests : IClassFixture<TestWebApplicationFactory>
         var uploadResponse = await ownerClient.PostAsync("/users/profile_picture", uploadContent);
         Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
 
+        var storedPicture = _factory.ObjectStorage.Get(UserService.ProfilePictureKey(owner.Id));
+        Assert.NotNull(storedPicture);
+        Assert.Equal(pictureBytes, storedPicture!.Bytes);
+        Assert.Equal("image/jpeg", storedPicture.ContentType);
+
         var transformationResponse = await ownerClient.PostAsJsonAsync("/users/profile_picture_transformation", new
         {
             X = 9,
@@ -223,14 +229,15 @@ public sealed class UsersApiTests : IClassFixture<TestWebApplicationFactory>
             Assert.Contains(lastChangeDocument.RootElement.EnumerateArray(), element => element.GetProperty("userId").GetString() == owner.Id);
         }
 
-        await AssertProfilePictureAccessAsync(ownerClient, owner.Id, HttpStatusCode.OK, expectBytes: pictureBytes);
-        await AssertProfilePictureAccessAsync(contactClient, owner.Id, HttpStatusCode.OK, expectBytes: pictureBytes);
-        await AssertProfilePictureAccessAsync(sharedClient, owner.Id, HttpStatusCode.OK, expectBytes: pictureBytes);
-        await AssertProfilePictureAccessAsync(adminClient, owner.Id, HttpStatusCode.OK, expectBytes: pictureBytes);
+        await AssertProfilePictureAccessAsync(ownerClient, owner.Id, HttpStatusCode.OK);
+        await AssertProfilePictureAccessAsync(contactClient, owner.Id, HttpStatusCode.OK);
+        await AssertProfilePictureAccessAsync(sharedClient, owner.Id, HttpStatusCode.OK);
+        await AssertProfilePictureAccessAsync(adminClient, owner.Id, HttpStatusCode.OK);
         await AssertProfilePictureAccessAsync(otherClient, owner.Id, HttpStatusCode.Forbidden);
 
         var deletePictureResponse = await ownerClient.DeleteAsync("/users/profile_picture");
         Assert.Equal(HttpStatusCode.OK, deletePictureResponse.StatusCode);
+        Assert.False(_factory.ObjectStorage.Contains(UserService.ProfilePictureKey(owner.Id)));
     }
 
     private static MultipartFormDataContent CreateProfilePictureContent(byte[] pictureBytes)
@@ -294,16 +301,18 @@ public sealed class UsersApiTests : IClassFixture<TestWebApplicationFactory>
         };
     }
 
-    private static async Task AssertProfilePictureAccessAsync(HttpClient client, string userId, HttpStatusCode expectedStatusCode, byte[]? expectBytes = null)
+    private async Task AssertProfilePictureAccessAsync(HttpClient client, string userId, HttpStatusCode expectedStatusCode)
     {
         var infoResponse = await client.GetAsync($"/users/profile_picture_info/{userId}");
         Assert.Equal(expectedStatusCode, infoResponse.StatusCode);
 
         var pictureResponse = await client.GetAsync($"/users/profile_picture/{userId}");
-        Assert.Equal(expectedStatusCode, pictureResponse.StatusCode);
 
         if (expectedStatusCode != HttpStatusCode.OK)
         {
+            Assert.Equal(expectedStatusCode, pictureResponse.StatusCode);
+            // Access is denied before a URL is minted: no bearer-less URL may leak.
+            Assert.Null(pictureResponse.Headers.Location);
             return;
         }
 
@@ -312,11 +321,17 @@ public sealed class UsersApiTests : IClassFixture<TestWebApplicationFactory>
             var properties = GetProperties(infoDocument.RootElement);
             Assert.Equal(9, properties["x"].GetInt32());
             Assert.Equal(8, properties["y"].GetInt32());
+            // The EF lazy-loading proxy must not leak its infrastructure member onto the wire.
+            Assert.False(properties.ContainsKey("lazyloader"));
         }
 
-        Assert.Equal("image/jpeg", pictureResponse.Content.Headers.ContentType?.MediaType);
-        var actualBytes = await pictureResponse.Content.ReadAsByteArrayAsync();
-        Assert.Equal(expectBytes, actualBytes);
+        Assert.Equal(HttpStatusCode.Redirect, pictureResponse.StatusCode);
+        Assert.Equal("no-store", pictureResponse.Headers.CacheControl?.ToString());
+        var location = pictureResponse.Headers.Location;
+        Assert.NotNull(location);
+        Assert.Equal(
+            $"{_factory.ObjectStorage.PublicBaseUrl}/{UserService.ProfilePictureKey(userId)}",
+            location!.GetLeftPart(UriPartial.Path));
     }
 
     private static void AssertSafeUserPayload(JsonElement userElement, bool expectToken)

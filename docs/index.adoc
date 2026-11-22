@@ -39,7 +39,7 @@ The Shopping List Server documentation is organized across the following files:
 * **Permission system** → link:api-json-exchange.adoc#permission-types[Permission Types]
 * **SignalR real-time events** → link:api-json-exchange.adoc#_signalr_real_time_messages[SignalR Messages]
 * **Database entities** → link:database-integration.adoc#entity-models[Entity Models]
-* **Hybrid storage (DB + filesystem)** → link:database-integration.adoc#hybrid-storage[Hybrid Storage Pattern]
+* **Storage model (PostgreSQL + object storage)** → link:database-integration.adoc#storage-model[Storage Model]
 * **Schema migration timeline** → link:database-integration.adoc#_migration_history[Migration History]
 * **Docker deployment** → link:deployment.adoc#_docker[Docker]
 * **Kubernetes deployment** → link:deployment.adoc#_kubernetes[Kubernetes]

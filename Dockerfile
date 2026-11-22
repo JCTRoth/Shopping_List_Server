@@ -7,7 +7,7 @@
 #   Out of memory.
 #   qemu: uncaught target signal 6 (Aborted) - core dumped
 # Building natively avoids the emulator entirely and is much faster.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build-env
 ARG TARGETARCH
 WORKDIR /app
 
@@ -23,13 +23,13 @@ RUN dotnet restore WebApi.csproj ${TARGETARCH:+-a "$TARGETARCH"}
 COPY . ./
 RUN dotnet publish WebApi.csproj -c Release -o out ${TARGETARCH:+-a "$TARGETARCH"}
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build-env /app/out .
 
-# Local file storage for the user shopping lists ("AppSettings:DataStorageFolder").
-# In Kubernetes this path is backed by a PersistentVolumeClaim (see k8s/storage.yaml).
-RUN mkdir -p /app/data
+# The API keeps no user data on disk: shopping lists live in PostgreSQL and
+# profile pictures in S3-compatible object storage (MinIO). The container is
+# therefore stateless and needs no volume.
 
 # Firebase admin credentials (only used when "UseFirebase" is enabled).
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/auth/cert-files/google-firebase-admin-sdk-key/shoppingnow-1519d-firebase-adminsdk-fqk5x-36c14e1451.json

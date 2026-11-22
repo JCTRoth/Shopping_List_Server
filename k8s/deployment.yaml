@@ -8,7 +8,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate # the data volume is ReadWriteOnce
+    type: RollingUpdate # the API is stateless: lists live in PostgreSQL, pictures in MinIO
   selector:
     matchLabels:
       app: shoppinglist-api
@@ -28,6 +28,14 @@ spec:
             - sh
             - -c
             - until nc -z shoppinglist-api-postgres 5432; do echo "Waiting for PostgreSQL..."; sleep 3; done
+        # Object storage is optional for list traffic, but starting after it exists
+        # avoids the API's bucket-creation retry loop on a cold deploy.
+        - name: wait-for-minio
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z minio 9000; do echo "Waiting for MinIO..."; sleep 3; done
       containers:
         - name: app
           image: ghcr.io/danielroth1/shoppinglist-api:latest
@@ -54,6 +62,16 @@ spec:
                 secretKeyRef:
                   name: shoppinglist-api-secrets
                   key: AppSettings__NoReplyEMailPassword
+            - name: AppSettings__ObjectStorage__AccessKey
+              valueFrom:
+                secretKeyRef:
+                  name: shoppinglist-api-secrets
+                  key: AppSettings__ObjectStorage__AccessKey
+            - name: AppSettings__ObjectStorage__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: shoppinglist-api-secrets
+                  key: AppSettings__ObjectStorage__SecretKey
           resources:
             requests:
               memory: "128Mi"
@@ -80,10 +98,3 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 5
-          volumeMounts:
-            - name: data
-              mountPath: /app/data
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: shoppinglist-api-data

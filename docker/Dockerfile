@@ -17,8 +17,8 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 COPY --from=build-env /app/out .
 
-# Create data directories
-RUN mkdir -p /app/data /app/auth && chown -R appuser:appgroup /app/data /app/auth
+# Create the credential directory (Apple sign-in keys are read from disk).
+RUN mkdir -p /app/auth && chown -R appuser:appgroup /app/auth
 
 ENV ASPNETCORE_URLS="http://+:5678" \
     DOTNET_RUNNING_IN_CONTAINER=true

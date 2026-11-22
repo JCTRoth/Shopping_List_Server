@@ -224,19 +224,82 @@ namespace ShoppingListServer.Migrations
                     b.ToTable("ShoppingListPermission");
                 });
 
+            modelBuilder.Entity("ShoppingListServer.Models.ShoppingData.ShoppingListProduct", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategoryColorHex")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryImagePath")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryName")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Checked")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ItemImagePath")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShoppingListId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShoppingListId", "ItemName")
+                        .IsUnique();
+
+                    b.HasIndex("ShoppingListId", "Position");
+
+                    b.ToTable("ShoppingListProducts", (string)null);
+                });
+
             modelBuilder.Entity("ShoppingListServer.Models.ShoppingList", b =>
                 {
                     b.Property<string>("SyncId")
                         .HasColumnType("text");
 
+                    b.Property<string>("Category")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DateString")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("LastChangeServerTime")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
 
                     b.Property<string>("OwnerId")
                         .HasColumnType("text");
 
                     b.Property<string>("ShareIdId")
                         .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.HasKey("SyncId");
 
@@ -337,6 +400,17 @@ namespace ShoppingListServer.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ShoppingListServer.Models.ShoppingData.ShoppingListProduct", b =>
+                {
+                    b.HasOne("ShoppingListServer.Models.ShoppingList", "ShoppingList")
+                        .WithMany("Products")
+                        .HasForeignKey("ShoppingListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ShoppingList");
+                });
+
             modelBuilder.Entity("ShoppingListServer.Models.ShoppingList", b =>
                 {
                     b.HasOne("ShoppingListServer.Entities.User", "Owner")
@@ -390,6 +464,8 @@ namespace ShoppingListServer.Migrations
 
             modelBuilder.Entity("ShoppingListServer.Models.ShoppingList", b =>
                 {
+                    b.Navigation("Products");
+
                     b.Navigation("ShoppingListPermissions");
                 });
 #pragma warning restore 612, 618

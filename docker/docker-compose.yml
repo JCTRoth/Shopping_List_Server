@@ -39,8 +39,9 @@ services:
       AppSettings__AppleTeamId: ${APPLE_TEAM_ID:-}
       UseFirebase: ${USE_FIREBASE:-false}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      AppSettings__ObjectStorage__InternalServiceUrl: http://minio:9000
+      AppSettings__ObjectStorage__PublicServiceUrl: ${OBJECT_STORAGE_PUBLIC_URL:-http://localhost:9000}
     volumes:
-      - shoppingdata:/app/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -60,4 +61,3 @@ services:
 
 volumes:
   dbdata:
-  shoppingdata:
