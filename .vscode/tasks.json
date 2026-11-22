@@ -22,6 +22,46 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "debug: stop container",
+            "type": "process",
+            "command": "docker",
+            "args": ["compose", "stop", "shoppinglistserver"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "debug: build and stop container",
+            "dependsOn": ["build", "debug: stop container"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "database: start Adminer",
+            "type": "process",
+            "command": "docker",
+            "args": ["compose", "up", "-d", "--no-deps", "adminer"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            // Run the API from source on http://localhost:5677. The Docker API
+            // container is stopped first because it publishes the same port;
+            // PostgreSQL and Adminer keep running. --no-launch-profile keeps
+            // the URLs from Program.cs instead of launchSettings.json.
+            "label": "local: start",
+            "type": "shell",
+            "command": "docker compose stop shoppinglistserver && docker compose up -d --no-deps db adminer && dotnet run --project WebApi.csproj --no-launch-profile",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "ASPNETCORE_ENVIRONMENT": "Development",
+                    "DB_PASSWORD": "sl_dev_pw_2026"
+                }
+            },
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "local" }
+        },
+        {
             // Build & push the Docker image for linux/amd64.
             "label": "k3s: build-push",
             "type": "shell",
