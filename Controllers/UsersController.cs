@@ -389,10 +389,9 @@ namespace ShoppingListServer.Controllers
         }
 
         /// <summary>
-        /// 
+        /// Uploads or replaces the profile picture of the logged in user.
         /// </summary>
-        /// <param name="file">jpg profile picture</param>
-        /// <param name="jsonString">ImageTransformationDTO</param>
+        /// <param name="form">The image file and the <c>ImageInfo</c> JSON.</param>
         /// <returns></returns>
         [Consumes("multipart/form-data")]
         [HttpPost("profile_picture")]

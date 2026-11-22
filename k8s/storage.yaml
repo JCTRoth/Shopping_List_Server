@@ -1,0 +1,13 @@
+# Persistent storage for the JSON files that hold every user's shopping lists
+# (AppSettings:DataStorageFolder -> /app/data in the container).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shoppinglist-api-data
+  namespace: shoppinglist-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

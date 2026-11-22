@@ -5,6 +5,11 @@
     <RootNamespace>ShoppingListServer</RootNamespace>
     <UseNETCoreGenerator>true</UseNETCoreGenerator>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <!-- Emit the XML documentation file so Swagger can show the API descriptions. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Do not warn about undocumented public members or stale <param>/<cref>
+         tags in comments (the existing comments predate doc generation). -->
+    <NoWarn>$(NoWarn);1591;1572;1573;1574</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -19,10 +24,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="7.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.11" />
-    <PackageReference Include="MySql.Data" Version="8.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="7.0.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="7.0.11" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.6.0" />
     <PackageReference Include="xunit.extensibility.core" Version="2.4.1" />
@@ -44,7 +48,9 @@
     <None Remove="Files\AuthKey_REPLACE_WITH_APPLE_KEY_ID.p8" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="auth\AuthKey_HQW3PG254R.p8" />
+    <!-- Apple sign-in key is read from disk at runtime (AppSettings:AppleSignInP8SecretPath),
+         so it is only embedded when the (secret) file is present. -->
+    <EmbeddedResource Include="auth\AuthKey_HQW3PG254R.p8" Condition="Exists('auth\AuthKey_HQW3PG254R.p8')" />
   </ItemGroup>
   
   <ItemGroup>

@@ -1,5 +1,13 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "k3sTag",
+            "type": "promptString",
+            "description": "Image tag",
+            "default": "latest"
+        }
+    ],
     "tasks": [
         {
             "label": "build",
@@ -12,6 +20,54 @@
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            // Build & push the Docker image for linux/amd64.
+            "label": "k3s: build-push",
+            "type": "shell",
+            "command": "docker buildx build --platform linux/amd64 --tag ghcr.io/danielroth1/shoppinglist-api:${input:k3sTag} --push .",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "k3s" }
+        },
+        {
+            // Deploy: create namespace + pull secret + application secret + apply manifests + wait for rollout.
+            "label": "k3s: deploy",
+            "type": "shell",
+            "command": "bash scripts/deploy.sh",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "TAG": "${input:k3sTag}"
+                }
+            },
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "k3s" }
+        },
+        {
+            // Build, push, and deploy in one step.
+            "label": "k3s: build-push-deploy",
+            "dependsOn": ["k3s: build-push", "k3s: deploy"],
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "k3s" }
+        },
+        {
+            // Show pod, ingress, service, and certificate status.
+            "label": "k3s: status",
+            "type": "shell",
+            "command": "KUBECONFIG=~/.kube/k3s-erp.yaml kubectl get pods,ingress,svc,certificate -n shoppinglist-api -o wide",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "shared", "group": "k3s" }
+        },
+        {
+            // Stream logs from the deployment.
+            "label": "k3s: logs",
+            "type": "shell",
+            "command": "KUBECONFIG=~/.kube/k3s-erp.yaml kubectl logs -n shoppinglist-api -f deploy/shoppinglist-api",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "k3s" }
         }
     ]
 }

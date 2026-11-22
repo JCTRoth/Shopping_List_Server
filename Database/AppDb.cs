@@ -31,8 +31,6 @@ namespace ShoppingListServer.Database
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.HasCharSet((string)null, true);
-
             // see "Indirect many-to-many relationships" in
             // https://docs.microsoft.com/en-us/ef/core/modeling/relationships?tabs=fluent-api%2Cfluent-api-simple-key%2Csimple-key
             // ShoppingListPermission is a n:n relationship between ShoppingList and User.

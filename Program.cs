@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using System.IO;
+using System.Linq;
 
 namespace ShoppingListServer
 {
@@ -23,11 +24,26 @@ namespace ShoppingListServer
             Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    config.AddJsonFile("auth/secrets.json", optional: true);
+                    // Host.CreateDefaultBuilder registers appsettings.json with
+                    // reloadOnChange: true, which starts an inotify FileSystemWatcher.
+                    // Containers inherit the host's fs.inotify.max_user_instances limit
+                    // (128 by default on the k3s node), shared by every pod, and running
+                    // out of instances aborts startup with:
+                    //   "The configured user limit (128) on the number of inotify
+                    //    instances has been reached"
+                    // Configuration is only read at startup in the container, so turn
+                    // file watching off. This delegate runs after the default sources
+                    // have been added, so they can still be adjusted here.
+                    foreach (var source in config.Sources.OfType<FileConfigurationSource>())
+                    {
+                        source.ReloadOnChange = false;
+                    }
+
+                    config.AddJsonFile("auth/secrets.json", optional: true, reloadOnChange: false);
                     if (hostingContext.HostingEnvironment.IsDevelopment())
                     {
-                        config.AddJsonFile("auth/devMode.json", optional: true);
-                        config.AddJsonFile("auth/dev/credentials.json", optional: true);
+                        config.AddJsonFile("auth/devMode.json", optional: true, reloadOnChange: false);
+                        config.AddJsonFile("auth/dev/credentials.json", optional: true, reloadOnChange: false);
                     }
                 })
                 .ConfigureWebHostDefaults(webBuilder =>

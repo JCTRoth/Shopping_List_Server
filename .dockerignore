@@ -22,4 +22,9 @@
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/data
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/.doc
 README.md

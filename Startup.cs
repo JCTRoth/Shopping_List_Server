@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Net.NetworkInformation;
@@ -10,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.OpenApi.Models;
 using ShoppingListServer.Database;
 using ShoppingListServer.Helpers;
 using ShoppingListServer.Services;
@@ -18,6 +21,7 @@ using ShoppingListServer.Services.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
+using Npgsql;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.OpenApi.Models;
@@ -39,6 +43,8 @@ namespace ShoppingListServer
 
 
         // This method gets called by the runtime. Use this method to add services to the container.
+        // NOTE: ASP.NET Core requires either no parameters or a single IServiceCollection parameter.
+        // The hosting environment is available through the Environment property injected into the constructor.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddCors();
@@ -67,6 +73,60 @@ namespace ShoppingListServer
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\""
                 });
 
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
+
+            // Swagger / OpenAPI documentation, available at /swagger
+            services.AddEndpointsApiExplorer();
+            services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "ShoppingList API",
+                    Version = "v1",
+                    Description = "REST API of the ShoppingList / ShoppingNow server."
+                });
+
+                // Pick up the XML comments written in the controllers and models.
+                // Wrapped in try/catch: a malformed doc comment must never break
+                // the whole OpenAPI document.
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                if (File.Exists(xmlPath))
+                {
+                    try
+                    {
+                        options.IncludeXmlComments(xmlPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Warning: Could not read XML documentation for Swagger: " + ex.Message);
+                    }
+                }
+
+                // JWT bearer authentication: allows "Authorize" in the Swagger UI.
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter the JWT returned by POST /Users/authenticate."
+                });
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -152,16 +212,20 @@ namespace ShoppingListServer
             //_serviceProvider = services.BuildServiceProvider();
 
 
-            // MySql database
-            // Pomelo.EntityFrameworkCore.MySql: https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql
-            // A MySql database must be setup in the system with a name and user access specified in appsettings.json
-            //string dbServerAddress = appSettings.UseDocker == "False" ? appSettings.DbServerAddress : appSettings.DbServerAddressDocker;
+            // PostgreSQL database
+            // Npgsql.EntityFrameworkCore.PostgreSQL: https://www.npgsql.org/efcore/
+            // A PostgreSQL database must be setup in the system with a name and user access specified in appsettings.json
             string dbServerAddress = appSettings.UseDocker == "False" ? appSettings.DbServerAddress : appSettings.DbServerAddressDocker;
 
-            string connectionString = dbServerAddress +
-                "user=" + appSettings.DbUser + ";" +
-                 "password=" + appSettings.DbPassword + ";" +
-                 "database=" + appSettings.DbName + ";";
+            // Build the connection string with the strongly typed builder so that
+            // values containing semicolons or special characters are escaped.
+            var connectionStringBuilder = new NpgsqlConnectionStringBuilder(dbServerAddress)
+            {
+                Username = appSettings.DbUser,
+                Password = appSettings.DbPassword,
+                Database = appSettings.DbName,
+            };
+            string connectionString = connectionStringBuilder.ConnectionString;
 
             // Console.WriteLine("Database connection string = " + connectionString);
 
@@ -175,21 +239,19 @@ namespace ShoppingListServer
                     }
                     else
                     {
-                        ServerVersion service_version = ServerVersion.AutoDetect(connectionString);
-                        options.UseMySql(
+                        options.UseNpgsql(
                             connectionString,
-                            service_version,
-                            mysqlOptions =>
+                            npgsqlOptions =>
                             {
-                                // mysqlOptions.CharSetBehavior(CharSetBehavior.NeverAppend);
-                                // mysqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
+                                // The API starts before PostgreSQL is necessarily
+                                // accepting connections; retry instead of crashing.
+                                npgsqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
                             });
                     }
-                    options
 #if DEBUG
-                    .EnableDetailedErrors()
+                    options.EnableDetailedErrors();
 #endif
-                    ;
+  
                     // Enable sensitive-data logging only when explicitly enabled in configuration.
                     var enableSensitiveLogging = Configuration.GetValue<bool>("AppSettings:EnableSensitiveDataLogging", false);
                     if (Environment.IsDevelopment() && enableSensitiveLogging)
@@ -235,13 +297,17 @@ namespace ShoppingListServer
                 .AllowAnyHeader());
 
             app.UseRouting();
+
+            // Swagger UI:            /swagger
+            // OpenAPI document:      /swagger/v1/swagger.json
             app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
-                options.SwaggerEndpoint("/swagger/v1/swagger.json", "Shopping List Server API v1");
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "ShoppingList API v1");
                 options.RoutePrefix = "swagger";
-                options.DisplayRequestDuration();
+                options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
             });
+
             app.UseAuthentication();
             app.UseAuthorization();
 

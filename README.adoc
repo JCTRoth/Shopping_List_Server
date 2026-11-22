@@ -7,7 +7,7 @@ TIP: Detailed documentation is available in the link:docs/index.adoc[docs/] fold
 
 == Overview
 
-The Shopping List Server is an ASP.NET Core Web API designed to support a shopping list application. It provides comprehensive user management, authentication, shopping list creation and sharing, real-time updates via SignalR, push notifications through Firebase Cloud Messaging (FCM), email verification, and secure file storage. The server uses Entity Framework Core for database interactions with support for both MySQL and SQLite, and includes Docker deployment options for scalability.
+The Shopping List Server is an ASP.NET Core Web API designed to support a shopping list application. It provides comprehensive user management, authentication, shopping list creation and sharing, real-time updates via SignalR, push notifications through Firebase Cloud Messaging (FCM), email verification, and secure file storage. The server uses Entity Framework Core for database interactions with support for both PostgreSQL and SQLite, and includes Docker deployment options for scalability.
 
 This project enables users to create, manage, and share shopping lists with fine-grained permissions, authenticate via JWT or social providers (Google, Facebook, Apple), and receive real-time notifications about list changes.
 
@@ -36,7 +36,7 @@ Launch Screen | Edit Screen | Zoom Screen
 * **Push Notifications**: Firebase Cloud Messaging (FCM) for sending notifications to users' devices about list updates.
 * **Email Services**: Automated email verification, password reset, and HTML email templates using SMTP.
 * **File Storage**: User-specific file storage for profile pictures and other data, managed via FilesystemService with secure path handling.
-* **Database Migrations**: Entity Framework Core migrations for schema evolution, supporting both MySQL and SQLite databases.
+* **Database Migrations**: Entity Framework Core migrations for schema evolution, supporting both PostgreSQL and SQLite databases.
 * **Security**: HTTPS redirection, CORS support, secure handling of sensitive data, and environment-specific configurations.
 * **Deployment**: Docker support for containerized deployment, with options for local development and external server production.
 
@@ -86,7 +86,7 @@ Launch Screen | Edit Screen | Zoom Screen
 === Prerequisites
 
 * .NET 8.0 SDK
-* MySQL or SQLite database
+* PostgreSQL or SQLite database
 * Docker (for containerized deployment)
 * Firebase project (for push notifications)
 * Email server credentials (for SMTP)
@@ -94,7 +94,7 @@ Launch Screen | Edit Screen | Zoom Screen
 === Local Server Setup
 
 1. Edit [`appsettings.Development.json`](appsettings.Development.json):
-   - Set database connection: `"DbServerAddress": "server=localhost"` for local MySQL or use SQLite.
+   - Set database connection: `"DbServerAddress": "Host=localhost;Port=5432;"` for local PostgreSQL or use SQLite.
    - Disable HTTPS: Change URL in [`Program.cs`](Program.cs) to `"http://0.0.0.0:5678"`.
 
 2. Install dependencies:
@@ -147,7 +147,7 @@ curl -I https://<certbot-address>:5678/users/test
 
 === External Server without Docker
 
-1. Install MySQL on the server and create schema/user as per [`appsettings.json`](appsettings.json).
+1. Install PostgreSQL on the server and create schema/user as per [`appsettings.json`](appsettings.json).
 2. Place certificates in the specified paths.
 3. Build and run:
    ```

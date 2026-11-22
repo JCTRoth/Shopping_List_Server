@@ -1,0 +1,100 @@
+# PostgreSQL for the ShoppingListServer API.
+# The application runs EF Core migrations itself on startup
+# (Startup.Configure -> context.Database.Migrate()), so no init scripts are needed.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shoppinglist-api-postgres-data
+  namespace: shoppinglist-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shoppinglist-api-postgres
+  namespace: shoppinglist-api
+  labels:
+    app: shoppinglist-api-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # the data volume is ReadWriteOnce
+  selector:
+    matchLabels:
+      app: shoppinglist-api-postgres
+  template:
+    metadata:
+      labels:
+        app: shoppinglist-api-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "shoppinglistserver"
+            - name: POSTGRES_USER
+              value: "shoppinglist"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shoppinglist-api-secrets
+                  key: AppSettings__DbPassword
+            # Keep the cluster in a predictable locale; the API stores UTC dates.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: TZ
+              value: UTC
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 5
+          volumeMounts:
+            # PGDATA points at a subdirectory so that the volume root (which may
+            # contain e.g. lost+found) is not used as the cluster directory.
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: shoppinglist-api-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shoppinglist-api-postgres
+  namespace: shoppinglist-api
+spec:
+  type: ClusterIP
+  selector:
+    app: shoppinglist-api-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

@@ -3,15 +3,13 @@ version: '3.4'
 services:
   db:
     platform: linux/x86_64
-    image: mysql:5.7
+    image: postgres:16-alpine
     environment:
-      MYSQL_RANDOM_ROOT_PASSWORD: 1
-      MYSQL_DATABASE: shoppinglistserver
-      MYSQL_USER: ShoppingListDBUser
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: shoppinglistserver
+      POSTGRES_USER: shoppinglist
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - dbdata:/var/lib/mysql
-      - ./_MySQL_Init_Script:/docker-entrypoint-initdb.d
+      - dbdata:/var/lib/postgresql/data
     restart: always
 
   shoppinglistserver:
