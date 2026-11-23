@@ -136,7 +136,8 @@ public sealed class ShoppingApiTests : IClassFixture<TestWebApplicationFactory>
 
         var memberPermissionResponse = await memberClient.GetAsync($"/shopping/listpermission/{syncId}/{member.Id}");
         Assert.Equal(HttpStatusCode.OK, memberPermissionResponse.StatusCode);
-        var memberPermission = await memberPermissionResponse.Content.ReadFromJsonAsync<string>();
+        AssertTextPlain(memberPermissionResponse);
+        var memberPermission = await memberPermissionResponse.Content.ReadAsStringAsync();
         Assert.Equal("Read", memberPermission);
 
         var userPermissionsResponse = await memberClient.GetAsync("/shopping/listpermission");
@@ -144,21 +145,35 @@ public sealed class ShoppingApiTests : IClassFixture<TestWebApplicationFactory>
 
         var shareIdResponse = await ownerClient.PostEmptyAsync($"/shopping/generate_share_id/{syncId}");
         Assert.Equal(HttpStatusCode.OK, shareIdResponse.StatusCode);
-        var shareId = await shareIdResponse.Content.ReadFromJsonAsync<string>();
+        AssertTextPlain(shareIdResponse);
+        var shareId = await shareIdResponse.Content.ReadAsStringAsync();
         Assert.False(string.IsNullOrWhiteSpace(shareId));
+        Assert.DoesNotContain('"', shareId);
 
         var addByShareIdResponse = await shareClient.PostAsJsonAsync("/shopping/list_share_id", new { Item1 = shareId });
         Assert.Equal(HttpStatusCode.OK, addByShareIdResponse.StatusCode);
-        var sharedListId = await addByShareIdResponse.Content.ReadFromJsonAsync<string>();
+        AssertTextPlain(addByShareIdResponse);
+        var sharedListId = await addByShareIdResponse.Content.ReadAsStringAsync();
         Assert.Equal(syncId, sharedListId);
 
         var resolveShareIdResponse = await shareClient.GetAsync($"/shopping/list_share_id/{shareId}");
         Assert.Equal(HttpStatusCode.OK, resolveShareIdResponse.StatusCode);
-        var resolvedListId = await resolveShareIdResponse.Content.ReadFromJsonAsync<string>();
+        AssertTextPlain(resolveShareIdResponse);
+        var resolvedListId = await resolveShareIdResponse.Content.ReadAsStringAsync();
         Assert.Equal(syncId, resolvedListId);
 
         var removePermissionResponse = await ownerClient.DeleteAsync($"/shopping/listpermission/{syncId}/{member.Id}");
         Assert.Equal(HttpStatusCode.OK, removePermissionResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// The share-id / sync-id / permission-name endpoints answer a bare value as text/plain.
+    /// A JSON-quoted body breaks the MAUI app and the web client (FEATURES §5 · PHASE0 §4.3 #3),
+    /// so this is pinned here rather than left to the clients to discover.
+    /// </summary>
+    private static void AssertTextPlain(HttpResponseMessage response)
+    {
+        Assert.Equal("text/plain", response.Content.Headers.ContentType?.MediaType);
     }
 
     private static object CreateShoppingListPayload(string name)

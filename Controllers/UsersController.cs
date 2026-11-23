@@ -317,7 +317,8 @@ namespace ShoppingListServer.Controllers
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string contactShareId = _userService.GenerateOrExtendContactShareId(currentUserId);
-            return new JsonResult(contactShareId);
+            // Bare token, text/plain: a JSON-quoted string breaks every client's share link.
+            return Content(contactShareId, "text/plain");
         }
 
         /// <summary>

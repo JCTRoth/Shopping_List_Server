@@ -102,8 +102,10 @@ public sealed class UsersApiTests : IClassFixture<TestWebApplicationFactory>
 
         var shareIdResponse = await targetClient.PostEmptyAsync("/users/generate_share_id");
         Assert.Equal(HttpStatusCode.OK, shareIdResponse.StatusCode);
-        var shareId = await shareIdResponse.Content.ReadFromJsonAsync<string>();
+        Assert.Equal("text/plain", shareIdResponse.Content.Headers.ContentType?.MediaType);
+        var shareId = await shareIdResponse.Content.ReadAsStringAsync();
         Assert.False(string.IsNullOrWhiteSpace(shareId));
+        Assert.DoesNotContain('"', shareId);
 
         var addByShareIdResponse = await sourceClient.PostAsJsonAsync("/users/contact_share_id", new { Item1 = shareId });
         Assert.Equal(HttpStatusCode.OK, addByShareIdResponse.StatusCode);

@@ -241,7 +241,9 @@ namespace ShoppingListServer.Controllers
             string thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ShoppingListPermissionType permission = _shoppingService.GetUserListPermission(listId, thisUserId, userId);
             if (permission != ShoppingListPermissionType.Undefined)
-                return new JsonResult(permission.ToString());
+                // The clients read this as a bare text/plain value, never as JSON
+                // (FEATURES §5 · PHASE0 §4.3 #3).
+                return Content(permission.ToString(), "text/plain");
             else
                 return BadRequest(new { message = "Not Found" });
         }
@@ -297,7 +299,8 @@ namespace ShoppingListServer.Controllers
         {
             var thisUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string listShareId = _shoppingService.GenerateOrExtendListShareId(listId, thisUserId);
-            return new JsonResult(listShareId);
+            // Bare token, text/plain: a JSON-quoted string breaks every client's share link.
+            return Content(listShareId, "text/plain");
         }
 
         /// <summary>
@@ -318,14 +321,14 @@ namespace ShoppingListServer.Controllers
             Tuple<string> listShareId = JsonConvert.DeserializeObject<Tuple<string>>(jsonBody.ToString());
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ShoppingList listEntity = await _shoppingService.AddListFromListShareId(currentUserId, listShareId.Item1);
-            return new JsonResult(listEntity.SyncId);
+            return Content(listEntity.SyncId, "text/plain");
         }
 
         [HttpGet("list_share_id/{shareId}")]
         public IActionResult GetListByShareId(string shareId)
         {
             ShoppingList listEntity = _shoppingService.GetListFromListShareId(shareId);
-            return new JsonResult(listEntity.SyncId);
+            return Content(listEntity.SyncId, "text/plain");
         }
 
         /// <summary>
